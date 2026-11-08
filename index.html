@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#101310" />
+    <meta name="description" content="TORNO — Virtual Pottery Studio" />
+    <title>TORNO — Virtual Pottery Studio</title>
+  </head>
+  <body>
+    <main id="app">
+      <div id="stage" aria-label="Estudio 3D de modelado de cerámica">
+        <header class="topbar">
+          <a class="brand" href="#" aria-label="TORNO inicio"><span class="brand-mark">T</span><span>TORNO<small>VIRTUAL POTTERY STUDIO</small></span></a>
+          <div class="project-name"><span class="live-dot"></span> ESTUDIO SIN TÍTULO <span class="saved">· GUARDADO LOCAL</span></div>
+          <div class="history-controls" role="group" aria-label="Historial de edición">
+            <button id="undoButton" class="icon-button" type="button" disabled aria-label="Deshacer" title="Deshacer · ⌘/Ctrl + Z"><svg class="icon" aria-hidden="true"><use href="#icon-undo-2" /></svg></button>
+            <button id="redoButton" class="icon-button" type="button" disabled aria-label="Rehacer" title="Rehacer · ⌘/Ctrl + Mayús + Z"><svg class="icon" aria-hidden="true"><use href="#icon-redo-2" /></svg></button>
+          </div>
+        </header>
+
+        <div class="left-rail">
+          <div class="mode-switch" role="group" aria-label="Modo de trabajo">
+            <button class="mode active" data-mode="model" aria-pressed="true" title="Activar herramientas de modelado"><svg class="icon" aria-hidden="true"><use href="#icon-pencil" /></svg> Modelar</button>
+            <button class="mode" data-mode="view" aria-pressed="false" title="Orbitar y observar la pieza"><svg class="icon" aria-hidden="true"><use href="#icon-orbit" /></svg> Observar</button>
+          </div>
+          <div class="tool-card">
+            <div class="card-label">HERRAMIENTA ACTIVA</div>
+            <div class="tool-options" role="group" aria-label="Herramientas de modelado">
+              <button class="tool-option active" data-tool="shape" aria-label="Modelado suave" title="Modelado suave" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#icon-sculpt" /></svg><small>Suave</small></button>
+              <button class="tool-option" data-tool="bilateral" aria-label="Presión bilateral" title="Presión bilateral" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-move-horizontal" /></svg><small>Bilateral</small></button>
+              <button class="tool-option" data-tool="stretch" aria-label="Estirar" title="Estirar la pieza" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-move-vertical" /></svg><small>Estirar</small></button>
+            </div>
+            <span class="tool-hint" id="toolHint">Arrastra para dar forma</span>
+            <label class="slider-label" for="heightControl">Altura <output id="heightValue">6.2 cm</output></label>
+            <input id="heightControl" type="range" min="2.4" max="100" step="0.1" value="6.2" />
+            <label class="slider-label exact-height-label" for="heightExact">Altura exacta</label>
+            <div class="height-entry"><input id="heightExact" type="number" min="2.4" max="100" step="0.1" value="6.2" /><span>cm</span></div>
+            <label class="slider-label" for="pressure">Presión <output id="pressureValue">42%</output></label>
+            <input id="pressure" type="range" min="5" max="100" value="42" />
+            <label class="slider-label" for="influence">Influencia <output id="influenceValue">18 cm</output></label>
+            <input id="influence" type="range" min="6" max="42" value="18" />
+          </div>
+          <details class="control-fold" open>
+            <summary>Siluetas</summary>
+            <div id="shapeCatalog" class="shape-catalog" aria-label="Catálogo de formas"></div>
+          </details>
+          <details class="control-fold" open>
+            <summary>Arcilla y pared</summary>
+            <div id="clayColors" class="clay-colors" aria-label="Colores de arcilla"></div>
+            <label class="slider-label" for="thickness">Grosor de pared <output id="thicknessValue">11 mm</output></label>
+            <input id="thickness" type="range" min="1" max="32" step="1" value="11" />
+            <p class="micro-note">Validez geométrica comprobada; la viabilidad física depende del material y del proceso.</p>
+          </details>
+          <details class="control-fold" open>
+            <summary>Geometría y optimización</summary>
+            <label class="compact-label" for="modelResolution">Resolución de modelado</label>
+            <select id="modelResolution">
+              <option value="light">Ligera</option><option value="balanced" selected>Equilibrada</option><option value="high">Alta</option>
+            </select>
+            <label class="compact-label" for="exportResolution">Resolución de exportación</label>
+            <select id="exportResolution">
+              <option value="light">Ligera</option><option value="standard" selected>Estándar</option><option value="high">Alta</option>
+            </select>
+            <div class="geometry-options">
+              <label><input id="adaptiveTopology" type="checkbox" checked /> <span>Topología adaptativa</span></label>
+              <label><input id="smoothVisual" type="checkbox" checked /> <span>Suavizado visual</span></label>
+              <label><input id="prioritizeQuads" type="checkbox" checked /> <span>Priorizar quads en OBJ</span></label>
+            </div>
+            <label class="slider-label" for="imperfections">Imperfecciones de superficie <output id="imperfectionsValue">50%</output></label>
+            <input id="imperfections" type="range" min="0" max="100" step="1" value="50" />
+          </details>
+          <details class="control-fold" open>
+            <summary>Proyecto y exportación</summary>
+            <div class="action-grid">
+              <button id="saveProject" class="small-action" title="Guardar proyecto TORNO en JSON">Guardar JSON</button>
+              <button id="loadProject" class="small-action" title="Abrir un proyecto TORNO en JSON">Abrir JSON</button>
+              <button id="exportGlb" class="small-action" title="Exportar pieza con geometría y material en GLB">Exportar GLB</button>
+              <button id="exportObj" class="small-action" title="Exportar geometría OBJ">Exportar OBJ</button>
+              <button id="exportStl" class="small-action" title="Exportar malla STL en milímetros">Exportar STL</button>
+              <button id="capturePng" class="small-action" title="Capturar una imagen PNG del estudio">Capturar PNG</button>
+            </div>
+            <label class="slider-label resolution-label" for="captureScale">Resolución PNG</label>
+            <select id="captureScale"><option value="1">1×</option><option value="2" selected>2×</option><option value="3">3×</option></select>
+            <input id="projectFile" type="file" accept="application/json,.json" hidden />
+          </details>
+          <div class="hint-card"><span class="hint-dot"></span><span><b>CONSEJO</b><br />Arrastra a los lados<br />para estrechar o ensanchar.</span></div>
+        </div>
+
+        <div class="right-rail">
+          <label class="view-chip" for="cameraView"><span class="view-dot"></span> VISTA 3D <span>·</span>
+            <select id="cameraView" aria-label="Vista de cámara">
+              <option value="perspective">Perspectiva</option>
+              <option value="front">Frontal</option>
+              <option value="side">Lateral</option>
+              <option value="top">Superior</option>
+            </select>
+          </label>
+          <div class="orbit-hint">Arrastra para orbitar <i>·</i> Desplaza para zoom</div>
+          <button class="view-control" id="homeView" type="button" title="Centrar y restaurar la vista" aria-label="Centrar y restaurar la vista"><svg class="icon" aria-hidden="true"><use href="#icon-focus" /></svg></button>
+        </div>
+
+        <div class="bottom-panel">
+          <div class="wheel-control">
+            <div class="wheel-icon spinning" aria-hidden="true"><svg class="icon"><use href="#icon-rotate-cw" /></svg></div>
+            <div class="wheel-copy"><b>TORNO</b><small id="wheelStatus">GIRANDO · 72 RPM</small></div>
+            <button id="wheelToggle" class="play-button" type="button" aria-label="Pausar torno" title="Pausar torno"><svg class="icon" aria-hidden="true"><use href="#icon-pause" /></svg></button>
+          </div>
+          <div class="speed-control"><label for="speed">VELOCIDAD</label><input id="speed" type="range" min="0" max="140" value="72" /><output id="speedValue">72 <small>RPM</small></output></div>
+          <div class="bottom-separator"></div>
+          <div class="piece-meta"><span id="pieceName">CILINDRO</span><b id="pieceHeight">6.2 cm</b><small>ALTURA</small></div>
+          <button id="resetButton" class="reset-button" type="button" title="Restaurar la silueta seleccionada" aria-label="Reiniciar pieza"><svg class="icon" aria-hidden="true"><use href="#icon-rotate-ccw" /></svg> Reiniciar pieza</button>
+        </div>
+
+        <div class="center-label"><span id="canvasHint">Una pieza nueva, lista para tomar forma</span></div>
+        <div class="footer-left">TORNO <span>·</span> BETA 0.1</div>
+        <div class="footer-right"><span class="status-light"></span> MOTOR ACTIVO</div>
+      </div>
+    </main>
+    <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <symbol id="icon-undo-2" viewBox="0 0 24 24"><path d="m9 14-5-5 5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-2"/></symbol>
+      <symbol id="icon-redo-2" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h2"/></symbol>
+      <symbol id="icon-rotate-ccw" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M3.5 13a8 8 0 1 0 2.2-7.6L3 8"/></symbol>
+      <symbol id="icon-rotate-cw" viewBox="0 0 24 24"><path d="M21 7v6h-6"/><path d="M20.5 13a8 8 0 1 1-2.2-7.6L21 8"/></symbol>
+      <symbol id="icon-focus" viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3"/><path d="M16 4h3a1 1 0 0 1 1 1v3"/><path d="M20 16v3a1 1 0 0 1-1 1h-3"/><path d="M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M10 5H6v14h4z"/><path d="M18 5h-4v14h4z"/></symbol>
+      <symbol id="icon-play" viewBox="0 0 24 24"><path d="m7 4 13 8-13 8z"/></symbol>
+      <symbol id="icon-sculpt" viewBox="0 0 24 24"><path d="M12 3c-4.7 0-8 3.4-8 8 0 4 2.2 7.2 5.5 9 .8.4 1.5-.2 1.5-1v-2.2c0-.8.6-1.4 1.4-1.4h1.2a2.4 2.4 0 0 0 0-4.8H11a2 2 0 0 1 0-4h2a2 2 0 0 0 0-4z"/><path d="M17.5 4.5h.01M20 8h.01M19 15h.01"/></symbol>
+      <symbol id="icon-orbit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><ellipse cx="12" cy="12" rx="9" ry="4.5" transform="rotate(-30 12 12)"/><path d="m18.8 5.7 1.5 2.4-2.8.3"/></symbol>
+      <symbol id="icon-move-horizontal" viewBox="0 0 24 24"><path d="M8 8 4 12l4 4"/><path d="m16 8 4 4-4 4"/><path d="M4 12h16"/></symbol>
+      <symbol id="icon-move-vertical" viewBox="0 0 24 24"><path d="m8 8 4-4 4 4"/><path d="m8 16 4 4 4-4"/><path d="M12 4v16"/></symbol>
+      <symbol id="icon-pencil" viewBox="0 0 24 24"><path d="m16 5 3 3"/><path d="M4 20l4-.9L19 8a2.1 2.1 0 0 0-3-3L5 16z"/><path d="M14 7l3 3"/></symbol>
+    </svg>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "name": "torno-virtual-pottery-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5188 --strictPort",
+    "build": "vite build",
+    "test:stl": "node scripts/validate-stl.mjs",
+    "test:exports": "node scripts/validate-exports.mjs"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "vite": "^7.1.12"
+  }
+}
