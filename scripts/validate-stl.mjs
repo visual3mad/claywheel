@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { STLExporter } from 'three/addons/exporters/STLExporter.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
-import { SHAPES, MIN_INNER_RADIUS, GEOMETRY_RESOLUTIONS, createProfile, makeClayGeometry } from '../src/ceramic.js';
+import { SHAPES, MIN_INNER_RADIUS, GEOMETRY_RESOLUTIONS, createProfile, createVerticalProfile, applyVerticalPull, makeClayGeometry } from '../src/ceramic.js';
 
 const scaleToMillimeters = 100;
 const keyAt = (x, y, z) => [x, y, z].map((value) => Math.round(value * 1e4)).join(',');
@@ -91,6 +91,8 @@ cases.push(
   { id: 'cylinder', name: 'Modelado suave aplicado', height: 0.62, cavity: 0.43, profile: smoothProfile, thickness: 0.11, imperfections: 50 },
   { id: 'vase', name: 'Presión bilateral aplicada', height: 1.45, cavity: 0.39, profile: bilateralProfile, thickness: 0.11, imperfections: 100 },
 );
+const verticalPull = applyVerticalPull({ profile: createProfile('cylinder', 2), verticalProfile: createVerticalProfile(0.62), height: 0.62, centerT: 0.52, displacement: 0.09, influence: 0.18, thickness: 0.11, cavityFraction: 0.43, heightLock: false });
+cases.push({ id: 'vertical-pull', name: 'Tirón vertical desbloqueado', height: verticalPull.height, cavity: 0.43, profile: verticalPull.profile, verticalProfile: verticalPull.verticalProfile, thickness: 0.11, surfaceStyle: 'fresh' });
 
 for (const shape of cases) {
   const { profile, thickness } = shape;
@@ -101,7 +103,7 @@ for (const shape of cases) {
 
   const resolutions = shape.allResolutions ? Object.entries(GEOMETRY_RESOLUTIONS) : [['high', GEOMETRY_RESOLUTIONS.high]];
   for (const [level, quality] of resolutions) {
-    const sourceGeometry = makeClayGeometry(profile, shape.height, shape.cavity, thickness, { ...quality, adaptive: true, imperfections: shape.imperfections ?? 50, surfaceStyle: shape.surfaceStyle });
+    const sourceGeometry = makeClayGeometry(profile, shape.height, shape.cavity, thickness, { ...quality, adaptive: true, imperfections: shape.imperfections ?? 50, surfaceStyle: shape.surfaceStyle, verticalProfile: shape.verticalProfile });
     const mesh = new THREE.Mesh(sourceGeometry); mesh.scale.setScalar(scaleToMillimeters);
     const scene = new THREE.Scene(); scene.add(mesh); scene.updateMatrixWorld(true);
     const stl = new STLExporter().parse(scene, { binary: true });

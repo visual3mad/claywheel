@@ -1,11 +1,19 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="app-loading">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#101310" />
     <meta name="description" content="CLAYWHEEL — Virtual Pottery Studio. Shape and explore ceramic forms in 3D." />
     <title>CLAYWHEEL — Virtual Pottery Studio</title>
+    <style>
+      :root, html, body { background: #101310; color-scheme: dark; }
+      html, body { margin: 0; min-width: 320px; min-height: 100%; }
+      #app { width: 100vw; height: 100dvh; overflow: hidden; background: #101310; }
+      #stage { width: 100%; height: 100%; position: relative; background: radial-gradient(ellipse at 51% 47%, #222720 0, #151a15 42%, #101310 78%); }
+      .icon-library { position: absolute; width: 0; height: 0; overflow: hidden; }
+      html.app-loading #stage { visibility: hidden; }
+    </style>
   </head>
   <body>
     <main id="app">
@@ -22,12 +30,15 @@
             <button id="undoButton" class="icon-button" type="button" disabled data-i18n-aria-label="history.undo" data-i18n-title="history.undo" aria-label="Undo" title="Undo · ⌘/Ctrl + Z"><svg class="icon" aria-hidden="true"><use href="#icon-undo-2" /></svg></button>
             <button id="redoButton" class="icon-button" type="button" disabled data-i18n-aria-label="history.redo" data-i18n-title="history.redo" aria-label="Redo" title="Redo · ⌘/Ctrl + Shift + Z"><svg class="icon" aria-hidden="true"><use href="#icon-redo-2" /></svg></button>
           </div>
+          <button id="immersiveToggle" class="icon-button immersive-toggle" type="button" aria-pressed="false" data-i18n-aria-label="immersive.enter" data-i18n-title="immersive.enter" aria-label="Enter immersive mode" title="Enter immersive mode"><svg class="icon" aria-hidden="true"><use href="#icon-maximize-2" /></svg></button>
+          <button class="view-control" id="homeView" type="button" data-i18n-title="camera.home" data-i18n-aria-label="camera.home" title="Center and restore view" aria-label="Center and restore view"><svg class="icon" aria-hidden="true"><use href="#icon-locate-fixed" /></svg></button>
+          <button class="shortcut-button" id="shortcutsButton" type="button" data-i18n-title="shortcuts.open" data-i18n-aria-label="shortcuts.open" title="Keyboard shortcuts" aria-label="Keyboard shortcuts">?</button>
           </div>
         </header>
 
-        <div class="left-rail" id="toolSheet" data-sheet-open="false">
-          <button class="sheet-toggle" id="toolSheetToggle" type="button" aria-expanded="false" aria-controls="toolPanelContent" aria-label="Show tools">
-            <span class="sheet-grabber" aria-hidden="true"></span><span id="sheetToggleLabel" data-i18n="panel.showTools">Show tools</span>
+        <div class="left-rail" id="toolSheet" data-sheet-open="true">
+          <button class="sheet-toggle" id="toolSheetToggle" type="button" aria-expanded="true" aria-controls="toolPanelContent" aria-label="Hide tools">
+            <span class="sheet-grabber" aria-hidden="true"></span><span id="sheetToggleLabel" data-i18n="panel.hideTools">Hide tools</span>
             <svg class="icon" aria-hidden="true"><use href="#icon-chevron-up" /></svg>
           </button>
           <div class="rail-content" id="toolPanelContent">
@@ -37,12 +48,33 @@
           </div>
           <div class="tool-card">
             <div class="card-label" data-i18n="tool.active">ACTIVE TOOL</div>
-            <div class="tool-options" role="group" data-i18n-aria-label="tool.group" aria-label="Modeling tools">
-              <button class="tool-option active" data-tool="shape" data-i18n-aria-label="tool.shape" data-i18n-title="tool.shape" aria-label="Soft shaping" title="Soft shaping" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#icon-hand" /></svg><small data-i18n="tool.shape.short">Soft</small></button>
-              <button class="tool-option" data-tool="bilateral" data-i18n-aria-label="tool.bilateral" data-i18n-title="tool.bilateral" aria-label="Bilateral pressure" title="Bilateral pressure" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-arrows-left-right" /></svg><small data-i18n="tool.bilateral.short">Bilateral</small></button>
-              <button class="tool-option" data-tool="stretch" data-i18n-aria-label="tool.stretch" data-i18n-title="tool.stretch" aria-label="Stretch" title="Stretch" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-arrows-up-down" /></svg><small data-i18n="tool.stretch.short">Stretch</small></button>
+            <div class="tool-options tool-options-primary" role="group" data-i18n-aria-label="tool.group" aria-label="Modeling tools">
+              <button class="tool-option tool-option-primary active" data-tool="throw" data-i18n-aria-label="tool.throw" data-i18n-title="tool.throw" aria-label="Throw" title="Throw" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#icon-throw" /></svg><small data-i18n="tool.throw.short">THROW</small></button>
             </div>
-            <span class="tool-hint" id="toolHint" data-i18n="hint.shape">Drag to shape the clay</span>
+            <div class="tool-options tool-options-secondary" role="group" data-i18n-aria-label="tool.group" aria-label="Secondary modeling tools">
+              <div class="tool-options-row tool-options-row-three">
+              <button class="tool-option" data-tool="diameter" data-i18n-aria-label="tool.diameter" data-i18n-title="tool.diameter" aria-label="Diameter" title="Diameter" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-arrows-left-right" /></svg><small data-i18n="tool.diameter.short">Diameter</small></button>
+              <button class="tool-option" data-tool="deform" data-i18n-aria-label="tool.deform" data-i18n-title="tool.deform" aria-label="Deform" title="Deform" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-deform" /></svg><small data-i18n="tool.deform.short">Deform</small></button>
+              <button class="tool-option" data-tool="height" data-i18n-aria-label="tool.height" data-i18n-title="tool.height" aria-label="Height" title="Height" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-arrows-up-down" /></svg><small data-i18n="tool.height.short">Height</small></button>
+              </div>
+              <div class="tool-options-row tool-options-row-four">
+              <button class="tool-option" data-tool="groove" data-i18n-aria-label="tool.groove" data-i18n-title="tool.groove" aria-label="Groove" title="Groove" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-groove" /></svg><small data-i18n="tool.groove.short">Groove</small></button>
+              <button class="tool-option" data-tool="ridge" data-i18n-aria-label="tool.ridge" data-i18n-title="tool.ridge" aria-label="Ridge" title="Ridge" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-ridge" /></svg><small data-i18n="tool.ridge.short">Ridge</small></button>
+              <button class="tool-option" data-tool="sharpen" data-i18n-aria-label="tool.sharpen" data-i18n-title="tool.sharpen" aria-label="Sharpen" title="Sharpen" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-sharpen" /></svg><small data-i18n="tool.sharpen.short">Sharpen</small></button>
+              <button class="tool-option" data-tool="smooth" data-i18n-aria-label="tool.smooth" data-i18n-title="tool.smooth" aria-label="Smooth" title="Smooth" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-smooth" /></svg><small data-i18n="tool.smooth.short">Smooth</small></button>
+              </div>
+            </div>
+            <span class="tool-hint" id="toolHint" data-i18n="hint.diameter">Drag outward to expand or inward to contract the clay</span>
+            <label class="height-lock-toggle is-disabled" id="preserveVolumeLabel" for="preserveVolume" data-i18n-title="control.preserveVolume.hint" title="Preserve the clay volume during Diameter changes">
+              <input id="preserveVolume" type="checkbox" disabled />
+              <svg class="icon" aria-hidden="true"><use href="#icon-layers-3" /></svg>
+              <span data-i18n="control.preserveVolume">Preserve Clay</span>
+            </label>
+            <label class="height-lock-toggle" id="heightLockLabel" for="heightLock" data-i18n-title="control.heightLock.hint" title="Lock the total height during Deform">
+              <input id="heightLock" type="checkbox" checked />
+              <svg class="icon" aria-hidden="true"><use href="#icon-lock" /></svg>
+              <span data-i18n="control.heightLock">Height Lock</span>
+            </label>
             <label class="slider-label" for="heightControl"><span data-i18n="control.height">Height</span> <output id="heightValue">6.2 cm</output></label>
             <input id="heightControl" type="range" min="2.4" max="100" step="0.1" value="6.2" />
             <label class="slider-label exact-height-label" for="heightExact" data-i18n="control.heightExact">Exact height</label>
@@ -50,20 +82,20 @@
             <label class="slider-label" for="pressure"><span data-i18n="control.pressure">Pressure</span> <output id="pressureValue">42%</output></label>
             <input id="pressure" type="range" min="5" max="100" value="42" />
             <label class="slider-label" for="influence"><span data-i18n="control.influence">Influence</span> <output id="influenceValue">18 cm</output></label>
-            <input id="influence" type="range" min="6" max="42" value="18" />
+            <input id="influence" type="range" min="1" max="42" value="18" />
           </div>
-          <details class="control-fold" open>
+          <details class="control-fold">
             <summary data-i18n="panel.shapes">Shapes</summary>
             <div id="shapeCatalog" class="shape-catalog" data-i18n-aria-label="shape.catalog" aria-label="Shape catalog"></div>
           </details>
-          <details class="control-fold" open>
+          <details class="control-fold">
             <summary data-i18n="panel.clay">Clay and wall</summary>
             <div id="clayColors" class="clay-colors" data-i18n-aria-label="color.catalog" aria-label="Clay colors"></div>
             <label class="slider-label" for="thickness"><span data-i18n="control.thickness">Wall thickness</span> <output id="thicknessValue">11 mm</output></label>
             <input id="thickness" type="range" min="1" max="32" step="1" value="11" />
             <p class="micro-note" data-i18n="note.wall">Geometric validity is checked; physical feasibility depends on the material and process.</p>
           </details>
-          <details class="control-fold" open>
+          <details class="control-fold">
             <summary data-i18n="panel.geometry">Geometry and optimization</summary>
             <label class="compact-label" for="modelResolution" data-i18n="control.modelResolution">Modeling resolution</label>
             <select id="modelResolution">
@@ -81,7 +113,7 @@
             <label class="slider-label" for="imperfections"><span data-i18n="control.imperfections">Surface imperfections</span> <output id="imperfectionsValue">50%</output></label>
             <input id="imperfections" type="range" min="0" max="100" step="1" value="50" />
           </details>
-          <details class="control-fold" open>
+          <details class="control-fold">
             <summary data-i18n="panel.project">Project and export</summary>
             <div class="action-grid">
               <button id="saveProject" class="small-action" data-i18n-title="title.saveJson" title="Save CLAYWHEEL project as JSON"><svg class="icon" aria-hidden="true"><use href="#icon-file-json" /></svg><span data-i18n="action.saveJson">Save JSON</span></button>
@@ -95,7 +127,11 @@
             <select id="captureScale"><option value="1">1×</option><option value="2" selected>2×</option><option value="3">3×</option></select>
             <input id="projectFile" type="file" accept="application/json,.json" hidden />
           </details>
-          <div class="hint-card"><span class="hint-dot"></span><span><b data-i18n="hint.tipTitle">TIP</b><br /><span data-i18n="hint.tipText">Drag sideways to narrow or widen.</span></span></div>
+          <details class="control-fold">
+            <summary data-i18n="panel.visuals">Visual adjustments</summary>
+            <label class="slider-label" for="lighting" data-i18n-title="control.lighting.hint" title="Adjust ambient light while keeping directional lights active"><span data-i18n="control.lighting">Lighting</span> <output id="lightingValue">50%</output></label>
+            <input id="lighting" type="range" min="0" max="100" step="1" value="50" data-i18n-title="control.lighting.hint" title="Adjust ambient light while keeping directional lights active" />
+          </details>
           </div>
         </div>
 
@@ -107,10 +143,58 @@
               <option value="side" data-i18n="camera.side">Side</option>
               <option value="top" data-i18n="camera.top">Top</option>
             </select>
+            <svg class="icon view-chevron" aria-hidden="true"><use href="#icon-chevron-down" /></svg>
           </label>
-          <div class="orbit-hint"><span data-i18n="camera.orbit">Drag to orbit</span> <i>·</i> <span data-i18n="camera.zoom">Scroll to zoom</span></div>
-          <button class="view-control" id="homeView" type="button" data-i18n-title="camera.home" data-i18n-aria-label="camera.home" title="Center and restore view" aria-label="Center and restore view"><svg class="icon" aria-hidden="true"><use href="#icon-locate-fixed" /></svg></button>
         </div>
+
+        <dialog id="shortcutsDialog" aria-labelledby="shortcutsTitle">
+          <div class="shortcuts-header">
+            <div><p data-i18n="shortcuts.eyebrow">QUICK REFERENCE</p><h2 id="shortcutsTitle" data-i18n="shortcuts.title">Keyboard shortcuts</h2></div>
+            <button class="shortcuts-close" id="shortcutsClose" type="button" data-i18n-title="shortcuts.close" data-i18n-aria-label="shortcuts.close" title="Close shortcuts" aria-label="Close shortcuts">×</button>
+          </div>
+          <div class="help-content">
+            <section class="help-section" aria-labelledby="helpToolsTitle">
+              <h3 id="helpToolsTitle" data-i18n="help.section.tools">Tools</h3>
+              <div class="help-grid help-tool-grid">
+                <article class="help-item"><h4><span data-i18n="tool.throw">Throw</span><kbd>1</kbd></h4><p data-i18n="help.tool.throw">Drag over the clay: move out/in to widen/narrow and up/down to pull/compress.</p></article>
+                <article class="help-item"><h4><span data-i18n="tool.diameter">Diameter</span><kbd>2</kbd></h4><p data-i18n="help.tool.diameter">Drag horizontally outward/inward to widen/narrow the local cross-section.</p></article>
+                <article class="help-item"><h4><span data-i18n="tool.deform">Deform</span><kbd>3</kbd></h4><p data-i18n="help.tool.deform">Drag vertically to pull or compress a local section of the vessel.</p></article>
+                <article class="help-item"><h4><span data-i18n="tool.height">Height</span><kbd>4</kbd></h4><p data-i18n="help.tool.height">Drag vertically to stretch or compress the whole vessel.</p></article>
+                <article class="help-item"><h4><span data-i18n="tool.groove">Groove</span><kbd>5</kbd></h4><p data-i18n="help.tool.groove">Press or drag to cut a narrow circular groove at each height.</p></article>
+                <article class="help-item"><h4><span data-i18n="tool.ridge">Ridge</span><kbd>6</kbd></h4><p data-i18n="help.tool.ridge">Press or drag to build a rounded raised ring at each height.</p></article>
+                <article class="help-item"><h4><span data-i18n="tool.sharpen">Sharpen</span><kbd>7</kbd></h4><p data-i18n="help.tool.sharpen">Drag across a rounded transition to concentrate it into one sharper edge.</p></article>
+                <article class="help-item"><h4><span data-i18n="tool.smooth">Smooth</span><kbd>8</kbd></h4><p data-i18n="help.tool.smooth">Drag along the profile to blend the local shape with neighboring rings.</p></article>
+              </div>
+            </section>
+            <section class="help-section" aria-labelledby="helpControlsTitle">
+              <h3 id="helpControlsTitle" data-i18n="help.section.controls">Controls</h3>
+              <div class="help-grid help-control-grid">
+                <article class="help-item"><h4 data-i18n="control.pressure">Pressure</h4><p data-i18n="help.control.pressure">Sets tool strength, including groove depth and ridge height.</p></article>
+                <article class="help-item"><h4 data-i18n="control.influence">Influence</h4><p data-i18n="help.control.influence">Sets the local profile area and groove/ridge width. Height affects the whole vessel.</p></article>
+                <article class="help-item"><h4 data-i18n="control.height">Height</h4><p data-i18n="help.control.height">Set total height with the slider or the Exact height field.</p></article>
+                <article class="help-item"><h4 data-i18n="control.heightLock">Height lock</h4><p data-i18n="help.control.heightLock">When on, Throw and Deform vertical pulls keep total height fixed. Height still changes it.</p></article>
+                <article class="help-item"><h4 data-i18n="help.control.preserveClayTitle">Preserve clay</h4><p data-i18n="help.control.preserveClay">For Diameter, compensates nearby radii to keep clay volume approximately constant.</p></article>
+                <article class="help-item"><h4 data-i18n="help.control.speedTitle">Speed</h4><p data-i18n="help.control.speed">The slider sets turntable speed in RPM (0–140).</p></article>
+                <article class="help-item"><h4 data-i18n="wheel.pause">Pause / resume wheel</h4><p data-i18n="help.control.wheel">Use the wheel button or press Space to toggle rotation.</p></article>
+              </div>
+            </section>
+            <section class="help-section" aria-labelledby="helpNavigationTitle">
+              <h3 id="helpNavigationTitle" data-i18n="help.section.navigation">Navigation & shortcuts</h3>
+              <div class="help-grid help-navigation-grid">
+                <article class="help-item"><h4 data-i18n="help.nav.orbit">Orbit</h4><p data-i18n="help.nav.orbitText">Drag empty space in Model mode or drag anywhere in Observe mode.</p></article>
+                <article class="help-item"><h4 data-i18n="help.nav.zoom">Zoom</h4><p data-i18n="help.nav.zoomText">Scroll with a mouse or pinch with two fingers on touchscreens.</p></article>
+              </div>
+              <div class="help-shortcut-grid">
+                <div class="help-shortcut"><span data-i18n="help.shortcut.tools">Select tools</span><kbd>1–8</kbd></div>
+                <div class="help-shortcut"><span data-i18n="shortcuts.wheel">Pause / resume wheel</span><kbd data-i18n="shortcuts.space">Space</kbd></div>
+                <div class="help-shortcut"><span data-i18n="shortcuts.immersive">Toggle immersive mode</span><kbd>H</kbd></div>
+                <div class="help-shortcut"><span data-i18n="history.undo">Undo</span><span class="help-key-pair"><kbd>Z</kbd><kbd>⌘/Ctrl + Z</kbd></span></div>
+                <div class="help-shortcut"><span data-i18n="history.redo">Redo</span><span class="help-key-pair"><kbd>Shift + Z</kbd><kbd>⌘/Ctrl + Shift + Z</kbd></span></div>
+                <div class="help-shortcut"><span data-i18n="shortcuts.temporarySmooth">Temporary Smooth</span><kbd>Shift + <span data-i18n="shortcuts.drag">drag</span></kbd></div>
+              </div>
+            </section>
+          </div>
+        </dialog>
 
         <div class="bottom-panel">
           <div class="wheel-control">
@@ -120,18 +204,19 @@
           </div>
           <div class="speed-control"><label for="speed" data-i18n="control.speed">SPEED</label><input id="speed" type="range" min="0" max="140" value="72" /><output id="speedValue">72 <small>RPM</small></output></div>
           <div class="bottom-separator"></div>
-          <div class="piece-meta"><span id="pieceName">CYLINDER</span><b id="pieceHeight">6.2 cm</b><small data-i18n="piece.height">HEIGHT</small></div>
+          <div class="piece-meta"><span id="pieceName">CYLINDER</span></div>
           <button id="resetButton" class="reset-button" type="button" data-i18n-title="piece.reset.title" data-i18n-aria-label="piece.reset" title="Restore the selected shape" aria-label="Reset piece"><svg class="icon" aria-hidden="true"><use href="#icon-rotate-ccw" /></svg> <span data-i18n="piece.reset">Reset piece</span></button>
         </div>
 
-        <div class="center-label"><span id="canvasHint" data-i18n="canvas.new">A fresh piece, ready to take shape</span></div>
-        <div class="footer-left">CLAYWHEEL <span>·</span> <span data-i18n="footer.beta">BETA 0.1</span></div>
+        <div class="footer-left">CLAYWHEEL <span>·</span> <span data-i18n="footer.beta">BETA 0.1</span> <span>·</span> <a href="https://x.com/artetuyo" target="_blank" rel="noopener noreferrer" aria-label="CLAYWHEEL by @artetuyo">by @artetuyo</a></div>
         <div class="footer-right"><span class="status-light"></span> <span data-i18n="footer.motor">MOTOR ACTIVE</span></div>
       </div>
     </main>
     <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
       <symbol id="icon-undo-2" viewBox="0 0 24 24"><path d="m9 14-5-5 5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-2"/></symbol>
       <symbol id="icon-redo-2" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h2"/></symbol>
+      <symbol id="icon-maximize-2" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="M9 21H3v-6"/><path d="m3 21 7-7"/></symbol>
+      <symbol id="icon-minimize-2" viewBox="0 0 24 24"><path d="M4 14h6v6"/><path d="m10 14-7 7"/><path d="M20 10h-6V4"/><path d="m14 10 7-7"/></symbol>
       <symbol id="icon-rotate-ccw" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M3.5 13a8 8 0 1 0 2.2-7.6L3 8"/></symbol>
       <symbol id="icon-locate-fixed" viewBox="0 0 24 24"><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/></symbol>
       <symbol id="icon-disc-3" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.5"/></symbol>
@@ -151,6 +236,14 @@
       <symbol id="icon-triangle" viewBox="0 0 24 24"><path d="m12 3 10 18H2z"/><path d="m12 3-2 12 12 6"/></symbol>
       <symbol id="icon-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></symbol>
       <symbol id="icon-camera" viewBox="0 0 24 24"><path d="M14 4h-4L8 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-4z"/><circle cx="12" cy="13" r="3"/></symbol>
+      <symbol id="icon-pull-up" viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m6 11 6-6 6 6"/><path d="M4 21h16"/></symbol>
+      <symbol id="icon-deform" viewBox="0 0 24 24"><path d="M5 4v16M19 4v16"/><path d="M5 12c3-8 11 8 14 0"/></symbol>
+      <symbol id="icon-throw" viewBox="0 0 24 24"><path d="M8 4h8l-.5 3c-.2 1 .2 1.6 1 2.5.8 1 .9 2 .4 3.2l-1.2 3.3H8.3l-1.2-3.3c-.5-1.2-.4-2.2.4-3.2.8-.9 1.2-1.5 1-2.5z"/><path d="M6 19h12M4 22h16"/><path d="M5 7V4m14 3V4"/></symbol>
+      <symbol id="icon-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+      <symbol id="icon-smooth" viewBox="0 0 24 24"><path d="M3 7c3.4 0 4.2-2 7.5-2s4.1 2 7.5 2H21"/><path d="M3 12h4.5c2.3 0 2.5-3 4.5-3s2.2 6 4.5 6H21"/><path d="M3 17h4c2.8 0 3.2 2 5 2s2.2-2 5-2h4"/></symbol>
+      <symbol id="icon-sharpen" viewBox="0 0 24 24"><path d="M4 5v14h5l3-8 3 8h5V5"/><path d="M2 19h20"/></symbol>
+      <symbol id="icon-groove" viewBox="0 0 24 24"><path d="M3 8h5l2 7c.6 2 3.4 2 4 0l2-7h5"/><path d="M3 19h18"/></symbol>
+      <symbol id="icon-ridge" viewBox="0 0 24 24"><path d="M3 16h5l4-8 4 8h5"/><path d="M3 19h18"/></symbol>
     </svg>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script type="module" src="/src/main.js"></script>

@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { exportOBJ } from '../src/obj-export.js';
-import { SHAPES, RINGS, SEGMENTS, MIN_INNER_RADIUS, GEOMETRY_RESOLUTIONS, createProfile, makeClayGeometry } from '../src/ceramic.js';
+import { SHAPES, RINGS, SEGMENTS, MIN_INNER_RADIUS, GEOMETRY_RESOLUTIONS, createProfile, createVerticalProfile, applyVerticalPull, makeClayGeometry } from '../src/ceramic.js';
 
 globalThis.FileReader ??= class FileReader {
   readAsArrayBuffer(blob) { blob.arrayBuffer().then((result) => { this.result = result; this.onloadend?.(); }); }
@@ -104,14 +104,16 @@ tests.push(
   { name: 'Presión bilateral aplicada', profile: bilateral, height: 1.45, cavity: 0.39, thickness: 0.11, modelResolution: 'balanced', exportResolution: 'standard', imperfections: 100, roundTrip: true },
   { name: 'Estirar aplicado', profile: createProfile('cup'), height: 2.4, cavity: 0.34, thickness: 0.11, modelResolution: 'light', exportResolution: 'high', roundTrip: true },
 );
+const verticalPull = applyVerticalPull({ profile: createProfile('cylinder', 2), verticalProfile: createVerticalProfile(0.62), height: 0.62, centerT: 0.52, displacement: 0.09, influence: 0.18, thickness: 0.11, cavityFraction: 0.43, heightLock: false });
+tests.push({ name: 'Tirón vertical exportado', profile: verticalPull.profile, verticalProfile: verticalPull.verticalProfile, height: verticalPull.height, cavity: 0.43, thickness: 0.11, surfaceStyle: 'fresh', roundTrip: true });
 
 for (const test of tests) {
   const minimumWall = Math.min(...test.profile.map((radius) => radius - Math.max(MIN_INNER_RADIUS, radius - test.thickness)));
   if (minimumWall < 0.01 - 1e-6 || test.profile.some((radius) => !Number.isFinite(radius) || radius <= test.thickness + MIN_INNER_RADIUS - 1e-6)) throw new Error(`${test.name}: pared mínima insuficiente`);
   const imperfection = test.imperfections ?? 50;
-  const geometry = makeClayGeometry(test.profile, test.height, test.cavity, test.thickness, { ...GEOMETRY_RESOLUTIONS[test.modelResolution || 'balanced'], adaptive: true, imperfections: imperfection, surfaceStyle: test.surfaceStyle });
+  const geometry = makeClayGeometry(test.profile, test.height, test.cavity, test.thickness, { ...GEOMETRY_RESOLUTIONS[test.modelResolution || 'balanced'], adaptive: true, imperfections: imperfection, surfaceStyle: test.surfaceStyle, verticalProfile: test.verticalProfile });
   const result = checkGeometry(geometry, `${test.name} modelo`);
-  const exportGeometry = makeClayGeometry(test.profile, test.height, test.cavity, test.thickness, { ...GEOMETRY_RESOLUTIONS[(test.exportResolution || 'standard') === 'standard' ? 'balanced' : test.exportResolution], adaptive: true, imperfections: imperfection, surfaceStyle: test.surfaceStyle });
+  const exportGeometry = makeClayGeometry(test.profile, test.height, test.cavity, test.thickness, { ...GEOMETRY_RESOLUTIONS[(test.exportResolution || 'standard') === 'standard' ? 'balanced' : test.exportResolution], adaptive: true, imperfections: imperfection, surfaceStyle: test.surfaceStyle, verticalProfile: test.verticalProfile });
   const exportResult = checkGeometry(exportGeometry, `${test.name} exportación`);
   if (test.roundTrip) {
     const outputs = await exportRoundTrip(exportGeometry, test.name);

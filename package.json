@@ -6,6 +6,13 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5188 --strictPort",
     "build": "vite build",
+    "test:pull": "node scripts/validate-vertical-pull.mjs",
+    "test:diameter": "node scripts/validate-diameter.mjs",
+    "test:throw": "node scripts/validate-throw.mjs",
+    "test:smooth": "node scripts/validate-smooth.mjs",
+    "test:sharpen": "node scripts/validate-sharpen.mjs",
+    "test:shortcuts": "node scripts/validate-shortcuts.mjs",
+    "test:groove-ridge": "node scripts/validate-groove-ridge.mjs",
     "test:stl": "node scripts/validate-stl.mjs",
     "test:exports": "node scripts/validate-exports.mjs"
   },

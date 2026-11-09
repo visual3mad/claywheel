@@ -3,15 +3,22 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import {
-  RINGS, SEGMENTS, MIN_INNER_RADIUS, GEOMETRY_RESOLUTIONS, SHAPES, CLAY_COLORS, createProfile, makeClayGeometry,
-  makeClayMaterial, makeMetalMaterial, estimateVolume, conserveProfileVolume,
+  RINGS, SEGMENTS, MIN_INNER_RADIUS, GEOMETRY_RESOLUTIONS, SHAPES, CLAY_COLORS, createProfile, createVerticalProfile,
+  influenceCursorDiameter,
+  materialTAtHeight, applyFullHeightStretch, applyVerticalPull, verticalPullDisplacement, screenSideFromAxis, applyDiameterDrag, applyLocalSmooth, applyLocalSharpen, applyRingRelief,
+  formatHeightControlValue, isValidVerticalProfile, makeClayGeometry,
+  makeClayMaterial, makeMetalMaterial, estimateVolume,
 } from './ceramic.js';
 import { applyTranslations, getLocale, setLocale, t } from './i18n.js';
+import { SnapshotTimeline } from './history.js';
+import { isShortcutBlockedTarget, resolveShortcut } from './shortcuts.js';
 import './style.css';
 
 RectAreaLightUniformsLib.init();
 const $ = (selector) => document.querySelector(selector);
 applyTranslations();
+// main.js statically imports style.css above, so the app is revealed only after its stylesheet is active.
+document.documentElement.classList.remove('app-loading');
 const rangeInputs = [...document.querySelectorAll('input[type="range"]')];
 function syncRangeProgress(input) {
   const min = Number(input.min || 0), max = Number(input.max || 100), value = Number(input.value || 0);
@@ -22,15 +29,15 @@ rangeInputs.forEach((input) => {
   input.addEventListener('input', () => syncRangeProgress(input));
 });
 const controlFolds = [...document.querySelectorAll('.control-fold')];
-const foldSessionKey = 'torno-panel-state-v041';
+const foldSessionKey = 'torno-panel-state-v042';
 try {
   const savedFolds = JSON.parse(sessionStorage.getItem(foldSessionKey) || 'null');
-  controlFolds.forEach((fold, index) => { fold.open = Array.isArray(savedFolds) ? savedFolds[index] ?? true : true; });
+  controlFolds.forEach((fold, index) => { fold.open = Array.isArray(savedFolds) ? savedFolds[index] ?? false : false; });
   controlFolds.forEach((fold) => fold.addEventListener('toggle', () => {
     sessionStorage.setItem(foldSessionKey, JSON.stringify(controlFolds.map((item) => item.open)));
   }));
 } catch {
-  controlFolds.forEach((fold) => { fold.open = true; });
+  controlFolds.forEach((fold) => { fold.open = false; });
 }
 const stage = $('#stage');
 const scene = new THREE.Scene();
@@ -44,7 +51,8 @@ renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadow
 renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.28;
 stage.prepend(renderer.domElement); renderer.domElement.className = 'webgl';
 
-scene.add(new THREE.HemisphereLight('#d8dfd1', '#22231e', 1.25));
+const ambientLight = new THREE.HemisphereLight('#d8dfd1', '#22231e', 1.25);
+scene.add(ambientLight);
 const key = new THREE.DirectionalLight('#fff0d7', 4.1); key.position.set(-3.5, 6.5, 4.2); key.castShadow = true;
 key.shadow.mapSize.set(1024, 1024); key.shadow.camera.left = -5; key.shadow.camera.right = 5; key.shadow.camera.top = 7; key.shadow.camera.bottom = -4; scene.add(key);
 const rim = new THREE.DirectionalLight('#b5c9dd', 3.2); rim.position.set(4, 4.5, -4); scene.add(rim);
@@ -54,6 +62,14 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 const room = new RoomEnvironment();
 scene.environment = pmrem.fromScene(room, 0.04).texture;
 room.dispose(); pmrem.dispose();
+function setAmbientLighting(value) {
+  const level = THREE.MathUtils.clamp(Number(value) / 100, 0, 1);
+  ambientLight.intensity = 1.25 * level;
+  scene.environmentIntensity = level;
+  $('#lightingValue').textContent = `${Math.round(level * 100)}%`;
+  syncRangeProgress($('#lighting'));
+}
+setAmbientLighting($('#lighting').value);
 
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: '#171a16', roughness: 0.92 }));
 ground.rotation.x = -Math.PI / 2; ground.position.y = -0.035; ground.receiveShadow = true; scene.add(ground);
@@ -82,15 +98,47 @@ for (let i = 0; i < 12; i++) {
 
 const state = {
   shape: 'cylinder', presetVersion: 2, appearanceVersion: 2, color: 'terracotta', profile: createProfile('cylinder', 2),
-  height: 0.62, cavity: 0.43, thickness: 0.11,
+  height: 0.62, verticalProfile: createVerticalProfile(0.62), heightLock: true, cavity: 0.43, thickness: 0.11,
   modelResolution: 'balanced', exportResolution: 'standard', adaptiveTopology: true,
   smoothVisual: true, prioritizeQuads: true, imperfections: 50,
-  pressure: 0.42, influence: 0.18, dirty: false,
+  pressure: 0.42, influence: 0.18, preserveVolume: false, dirty: false,
 };
 const LEGACY_TERRACOTTA = '#a95739';
 const clay = new THREE.Mesh(new THREE.BufferGeometry(), makeClayMaterial(CLAY_COLORS.find((color) => color.id === state.color)?.color || '#6b5143', 'fresh'));
 clay.material.userData.clayFinish = 'fresh';
 clay.castShadow = true; clay.receiveShadow = true; clay.position.y = 0.22; turntable.add(clay);
+const cursorSegments = 64, cursorPositions = [];
+for (let i = 0; i < cursorSegments; i++) {
+  const angle = (i / cursorSegments) * Math.PI * 2;
+  cursorPositions.push(Math.cos(angle), Math.sin(angle), 0);
+}
+const cursorRingGeometry = new THREE.BufferGeometry();
+cursorRingGeometry.setAttribute('position', new THREE.Float32BufferAttribute(cursorPositions, 3));
+const cursorRing = new THREE.LineLoop(cursorRingGeometry, new THREE.LineBasicMaterial({
+  color: '#d1ddb0', transparent: true, opacity: 0.62, depthTest: false, depthWrite: false, toneMapped: false,
+}));
+const cursorDotGeometry = new THREE.BufferGeometry();
+cursorDotGeometry.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0], 3));
+const cursorDot = new THREE.Points(cursorDotGeometry, new THREE.PointsMaterial({
+  color: '#e1e9cd', size: 4, sizeAttenuation: false, transparent: true, opacity: 0.82,
+  depthTest: false, depthWrite: false, toneMapped: false,
+}));
+const influenceCursor = new THREE.Group();
+influenceCursor.add(cursorRing, cursorDot); influenceCursor.visible = false; influenceCursor.renderOrder = 1000; scene.add(influenceCursor);
+function resizeInfluenceCursor() {
+  const diameter = influenceCursorDiameter(state.influence);
+  const radius = diameter * 0.5;
+  influenceCursor.scale.set(radius, radius, radius);
+}
+resizeInfluenceCursor();
+function updateInfluenceCursor(hit) {
+  if (mode !== 'model' || tool === 'height' || !hit) { influenceCursor.visible = false; return; }
+  turntable.updateMatrixWorld(true); clay.updateMatrixWorld(true);
+  const normal = hit.face?.normal?.clone().transformDirection(clay.matrixWorld) || new THREE.Vector3(0, 1, 0);
+  influenceCursor.position.copy(hit.point).addScaledVector(normal, 0.012);
+  influenceCursor.quaternion.copy(camera.quaternion);
+  resizeInfluenceCursor(); influenceCursor.visible = true;
+}
 function clayFinish() { return state.shape === 'cylinder' && state.presetVersion >= 2 ? 'fresh' : 'classic'; }
 function clayColor(id = state.color) {
   if (id === 'terracotta' && (state.appearanceVersion < 2 || clayFinish() !== 'fresh')) return LEGACY_TERRACOTTA;
@@ -124,7 +172,7 @@ function rebuildClay(resolution = state.modelResolution) {
   const quality = resolutionSettings(resolution);
   clay.geometry = makeClayGeometry(state.profile, state.height, state.cavity, state.thickness, {
     ...quality, adaptive: state.adaptiveTopology, imperfections: state.imperfections,
-    surfaceStyle: clayFinish(),
+    surfaceStyle: clayFinish(), verticalProfile: state.verticalProfile,
   });
   setClayAppearance();
   old.dispose(); updatePieceMeta();
@@ -132,10 +180,10 @@ function rebuildClay(resolution = state.modelResolution) {
 function updatePieceMeta() {
   const selected = SHAPES.find((shape) => shape.id === state.shape);
   $('#pieceName').textContent = (selected ? t(`shape.${selected.id}`) : t('piece.generic')).toLocaleUpperCase(getLocale());
-  $('#pieceHeight').textContent = `${(state.height * 10).toFixed(1)} cm`;
-  $('#heightControl').value = (state.height * 10).toFixed(1);
-  if (document.activeElement !== $('#heightExact')) $('#heightExact').value = (state.height * 10).toFixed(1);
-  $('#heightValue').textContent = `${(state.height * 10).toFixed(1)} cm`;
+  const heightCm = formatHeightControlValue(state.height);
+  $('#heightControl').value = heightCm;
+  if (document.activeElement !== $('#heightExact')) $('#heightExact').value = heightCm;
+  $('#heightValue').textContent = `${heightCm} cm`;
   $('#thickness').max = maxFeasibleWallMm();
   $('#thickness').value = Math.min(Math.round(state.thickness * 100), Number($('#thickness').max));
   $('#thicknessValue').textContent = `${Math.round(state.thickness * 100)} mm`;
@@ -210,15 +258,17 @@ function scheduleCameraFrame(view = activeCameraView, forcePreset = false) {
 }
 
 const raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2();
-let mode = 'model', tool = 'shape', rpm = 72, running = true, sculpting = false, dragStart = null;
-let history = [], historyIndex = -1, cleanHistoryIndex = -1, toastTimer;
+let mode = 'model', tool = 'throw', shiftToolRestore = null, rpm = 72, running = true, sculpting = false, dragStart = null;
+const history = new SnapshotTimeline(50);
+let toastTimer;
 let pristinePresetHistory = true;
 const canvas = renderer.domElement;
 
 function snapshot(includePreferences = false) {
   const data = {
-    version: 3, shape: state.shape, presetVersion: state.presetVersion, appearanceVersion: state.appearanceVersion,
+    version: 4, shape: state.shape, presetVersion: state.presetVersion, appearanceVersion: state.appearanceVersion,
     color: state.color, profile: [...state.profile], height: state.height,
+    verticalProfile: [...state.verticalProfile], heightLock: state.heightLock, preserveVolume: state.preserveVolume,
     cavity: state.cavity, thickness: state.thickness, imperfections: state.imperfections,
     pressure: state.pressure, influence: state.influence,
   };
@@ -230,6 +280,9 @@ function snapshot(includePreferences = false) {
 }
 function applySnapshot(data) {
   state.shape = data.shape; state.color = data.color; state.profile = [...data.profile]; state.height = data.height;
+  state.verticalProfile = Array.isArray(data.verticalProfile) ? [...data.verticalProfile] : createVerticalProfile(state.height);
+  state.heightLock = typeof data.heightLock === 'boolean' ? data.heightLock : true;
+  state.preserveVolume = typeof data.preserveVolume === 'boolean' ? data.preserveVolume : false;
   state.presetVersion = data.shape === 'cylinder' && data.presetVersion === 2 ? 2 : data.shape === 'cylinder' ? 1 : 2;
   state.appearanceVersion = data.appearanceVersion === 2 ? 2 : 1;
   state.cavity = data.cavity; state.thickness = data.thickness; state.pressure = data.pressure; state.influence = data.influence;
@@ -239,30 +292,25 @@ function applySnapshot(data) {
   if (typeof data.adaptiveTopology === 'boolean') state.adaptiveTopology = data.adaptiveTopology;
   if (typeof data.smoothVisual === 'boolean') state.smoothVisual = data.smoothVisual;
   if (typeof data.prioritizeQuads === 'boolean') state.prioritizeQuads = data.prioritizeQuads;
+  $('#heightLock').checked = state.heightLock;
+  $('#preserveVolume').checked = state.preserveVolume;
   setClayAppearance();
-  $('#heightControl').value = (state.height * 10).toFixed(1); $('#heightExact').value = (state.height * 10).toFixed(1); $('#heightValue').textContent = `${(state.height * 10).toFixed(1)} cm`;
+  const heightCm = formatHeightControlValue(state.height);
+  $('#heightControl').value = heightCm; $('#heightExact').value = heightCm; $('#heightValue').textContent = `${heightCm} cm`;
   $('#pressure').value = Math.round(state.pressure * 100); $('#pressureValue').textContent = `${Math.round(state.pressure * 100)}%`;
   $('#influence').value = Math.round(state.influence * 100); $('#influenceValue').textContent = `${Math.round(state.influence * 100)} cm`;
   syncGeometryControls(); updateColorSelection(); drawShapeCatalog(); rebuildClay(); scheduleCameraFrame();
 }
 function addHistory({ clean = false, edit = true } = {}) {
-  const data = snapshot(), encoded = JSON.stringify(data);
-  if (history[historyIndex] && JSON.stringify(history[historyIndex]) === encoded) {
-    if (clean) { cleanHistoryIndex = historyIndex; state.dirty = false; updateHistoryButtons(); }
-    return;
-  }
-  if (edit && pristinePresetHistory) { pristinePresetHistory = false; cleanHistoryIndex = historyIndex; }
-  history = history.slice(0, historyIndex + 1); history.push(data);
-  if (history.length > 50) { history.shift(); if (cleanHistoryIndex >= 0) cleanHistoryIndex--; }
-  historyIndex = history.length - 1;
-  if (clean) cleanHistoryIndex = historyIndex;
-  state.dirty = pristinePresetHistory ? false : historyIndex !== cleanHistoryIndex; updateHistoryButtons();
+  if (edit && pristinePresetHistory) { pristinePresetHistory = false; history.markClean(); }
+  history.record(snapshot(), { clean });
+  state.dirty = pristinePresetHistory ? false : history.isDirty; updateHistoryButtons();
 }
-function resetHistory({ pristine = false } = {}) { history = [snapshot()]; historyIndex = 0; cleanHistoryIndex = 0; pristinePresetHistory = pristine; state.dirty = false; updateHistoryButtons(); }
-function updateHistoryButtons() { $('#undoButton').disabled = historyIndex <= 0; $('#redoButton').disabled = historyIndex >= history.length - 1; }
-function updateDirtyFromHistory() { state.dirty = pristinePresetHistory ? false : historyIndex !== cleanHistoryIndex; updateHistoryButtons(); }
-function undo() { if (historyIndex <= 0) return; historyIndex--; applySnapshot(history[historyIndex]); updateDirtyFromHistory(); }
-function redo() { if (historyIndex >= history.length - 1) return; historyIndex++; applySnapshot(history[historyIndex]); updateDirtyFromHistory(); }
+function resetHistory({ pristine = false } = {}) { history.reset(snapshot()); pristinePresetHistory = pristine; state.dirty = false; updateHistoryButtons(); }
+function updateHistoryButtons() { $('#undoButton').disabled = !history.canUndo; $('#redoButton').disabled = !history.canRedo; }
+function updateDirtyFromHistory() { state.dirty = pristinePresetHistory ? false : history.isDirty; updateHistoryButtons(); }
+function undo() { const data = history.undo(); if (!data) return; applySnapshot(data); updateDirtyFromHistory(); }
+function redo() { const data = history.redo(); if (!data) return; applySnapshot(data); updateDirtyFromHistory(); }
 function toast(message) { const el = $('#toast'); el.textContent = message; el.classList.add('visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('visible'), 2600); }
 function canDiscard() { return !state.dirty || window.confirm(t('confirm.discard')); }
 
@@ -282,7 +330,7 @@ function selectShape(id) {
   if (!canDiscard()) return;
   const shape = SHAPES.find((item) => item.id === id); if (!shape) return;
   state.shape = id; state.presetVersion = 2; if (id === 'cylinder') state.appearanceVersion = 2;
-  state.height = shape.height; state.cavity = shape.cavity;
+  state.height = shape.height; state.verticalProfile = createVerticalProfile(state.height); state.cavity = shape.cavity;
   state.profile = createProfile(id, state.presetVersion); setClayAppearance(); rebuildClay(); drawShapeCatalog(); drawColors();
   if (discardEdits) resetHistory({ pristine: true });
   else if (pristinePresetHistory) addHistory({ clean: true, edit: false });
@@ -303,9 +351,21 @@ document.querySelectorAll('[data-language]').forEach((button) => button.addEvent
   if (!setLocale(button.dataset.language)) return;
   drawShapeCatalog(); drawColors(); updatePieceMeta();
   setTool(tool); setWheel(running);
-  $('#canvasHint').textContent = t(mode === 'model' ? 'canvas.model' : 'canvas.view');
   syncToolSheetToggle();
 }));
+const immersiveToggle = $('#immersiveToggle');
+function setImmersiveMode(enabled) {
+  stage.classList.toggle('immersive-mode', enabled);
+  const key = enabled ? 'immersive.exit' : 'immersive.enter';
+  immersiveToggle.dataset.i18nTitle = key;
+  immersiveToggle.dataset.i18nAriaLabel = key;
+  immersiveToggle.title = t(key);
+  immersiveToggle.setAttribute('aria-label', t(key));
+  immersiveToggle.setAttribute('aria-pressed', String(enabled));
+  immersiveToggle.querySelector('use').setAttribute('href', enabled ? '#icon-minimize-2' : '#icon-maximize-2');
+  if (enabled) immersiveToggle.focus({ preventScroll: true });
+}
+immersiveToggle.addEventListener('click', () => setImmersiveMode(!stage.classList.contains('immersive-mode')));
 function syncToolSheetToggle() {
   const open = $('#toolSheet').dataset.sheetOpen === 'true';
   const label = t(open ? 'panel.hideTools' : 'panel.showTools');
@@ -314,6 +374,7 @@ function syncToolSheetToggle() {
   $('#toolSheetToggle').setAttribute('aria-expanded', String(open));
   $('#toolSheetToggle use').setAttribute('href', open ? '#icon-chevron-down' : '#icon-chevron-up');
 }
+syncToolSheetToggle();
 $('#toolSheetToggle').addEventListener('click', () => {
   const sheet = $('#toolSheet');
   sheet.dataset.sheetOpen = String(sheet.dataset.sheetOpen !== 'true');
@@ -329,46 +390,136 @@ function updatePointer(event) {
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1; raycaster.setFromCamera(pointer, camera);
 }
 function hitClay(event) { updatePointer(event); return raycaster.intersectObject(clay, false)[0] || null; }
+function diameterScreenSide(hitPoint) {
+  camera.updateMatrixWorld();
+  const hitScreenX = hitPoint.clone().project(camera).x;
+  const axisScreenX = new THREE.Vector3(clay.position.x, hitPoint.y, clay.position.z).project(camera).x;
+  return screenSideFromAxis(hitScreenX, axisScreenX);
+}
 canvas.addEventListener('pointerdown', (event) => {
   if (mode !== 'model') return;
+  if (event.shiftKey && tool !== 'smooth') {
+    if (shiftToolRestore === null) shiftToolRestore = tool;
+    setTool('smooth');
+  }
   const hit = hitClay(event); if (!hit) return;
+  updateInfluenceCursor(hit);
   cameraTransition = null;
   sculpting = true; dragStart = {
     x: event.clientX, y: event.clientY,
-    t: THREE.MathUtils.clamp((hit.point.y - clay.position.y) / state.height, 0.02, 0.98),
-    volume: estimateVolume(state.profile, state.height),
+    pointerType: event.pointerType,
+    gestureTool: event.shiftKey ? 'smooth' : tool,
+    t: THREE.MathUtils.clamp(materialTAtHeight(state.verticalProfile, hit.point.y - clay.position.y, state.height), 0.02, 0.98),
+    screenSide: ['diameter', 'throw'].includes(tool) ? diameterScreenSide(hit.point) : 1,
+    volume: estimateVolume(state.profile, state.height, state.verticalProfile),
     initialHeight: state.height,
   };
-  controls.enabled = false; canvas.setPointerCapture(event.pointerId); canvas.classList.add('sculpting');
+  if (['groove', 'ridge'].includes(dragStart.gestureTool)) {
+    state.profile = applyRingRelief({
+      profile: state.profile, centerT: dragStart.t, kind: dragStart.gestureTool,
+      pressure: state.pressure, influence: state.influence, height: state.height, dab: true,
+      minRadius: Math.max(0.14, state.thickness + MIN_INNER_RADIUS),
+    });
+  }
+  controls.enabled = false; canvas.setPointerCapture(event.pointerId); canvas.classList.add('sculpting'); event.preventDefault();
   rebuildClay('light');
 });
 canvas.addEventListener('pointermove', (event) => {
-  if (!sculpting || !dragStart) return;
+  if (mode !== 'model') { influenceCursor.visible = false; return; }
+  if (!sculpting || !dragStart) { updateInfluenceCursor(hitClay(event)); return; }
   const dx = event.clientX - dragStart.x, dy = event.clientY - dragStart.y;
-  if (tool === 'stretch') {
-    const oldHeight = state.height;
-    state.height = THREE.MathUtils.clamp(state.height - dy * 0.004 * (state.pressure / 0.42), 0.24, 10);
-    conserveProfileVolume(state.profile, state.height, dragStart.volume, Math.max(0.14, state.thickness + MIN_INNER_RADIUS));
-    dragStart.volume = estimateVolume(state.profile, state.height);
-    if (Math.abs(state.height - oldHeight) > 0.0001) rebuildClay('light');
-  } else {
+  const gestureTool = dragStart.gestureTool;
+  if (gestureTool === 'groove' || gestureTool === 'ridge') {
     const centerT = THREE.MathUtils.clamp(dragStart.t - dy * 0.0024, 0.025, 0.985);
-    const center = centerT * RINGS, spread = Math.max(2.2, (state.influence / state.height) * RINGS);
-    const amount = tool === 'bilateral' ? -Math.abs(dx) * 0.00135 * (state.pressure / 0.42) : dx * 0.00135 * (state.pressure / 0.42);
-    for (let i = 0; i <= RINGS; i++) {
-      const d = (i - center) / spread; if (Math.abs(d) > 3.2) continue;
-      state.profile[i] = THREE.MathUtils.clamp(state.profile[i] + amount * Math.exp(-0.5 * d * d), Math.max(0.14, state.thickness + MIN_INNER_RADIUS), 1.85);
-    }
-    if (amount) conserveProfileVolume(state.profile, state.height, dragStart.volume, Math.max(0.14, state.thickness + MIN_INNER_RADIUS));
-    dragStart.volume = estimateVolume(state.profile, state.height);
+    state.profile = applyRingRelief({
+      profile: state.profile, centerT, kind: gestureTool, deltaDistance: Math.hypot(dx, dy),
+      pressure: state.pressure, influence: state.influence, height: state.height,
+      minRadius: Math.max(0.14, state.thickness + MIN_INNER_RADIUS),
+    });
     dragStart.t = centerT; rebuildClay('light');
+  } else if (gestureTool === 'smooth') {
+    const centerT = THREE.MathUtils.clamp(dragStart.t - dy * 0.0024, 0.025, 0.985);
+    state.profile = applyLocalSmooth({
+      profile: state.profile, centerT, deltaDistance: Math.hypot(dx, dy),
+      pressure: state.pressure, influence: state.influence, height: state.height,
+      minRadius: Math.max(0.14, state.thickness + MIN_INNER_RADIUS),
+    });
+    dragStart.t = centerT; rebuildClay('light');
+  } else if (gestureTool === 'sharpen') {
+    const centerT = THREE.MathUtils.clamp(dragStart.t - dy * 0.0024, 0.025, 0.985);
+    state.profile = applyLocalSharpen({
+      profile: state.profile, centerT, deltaDistance: Math.hypot(dx, dy),
+      pressure: state.pressure, influence: state.influence, height: state.height,
+      minRadius: Math.max(0.14, state.thickness + MIN_INNER_RADIUS),
+    });
+    dragStart.t = centerT; rebuildClay('light');
+  } else if (gestureTool === 'throw') {
+    const centerT = THREE.MathUtils.clamp(dragStart.t - dy * 0.0024, 0.025, 0.985);
+    const minRadius = Math.max(0.14, state.thickness + MIN_INNER_RADIUS);
+    const radialProfile = applyDiameterDrag({
+      profile: state.profile, centerT, deltaX: dx, screenSide: dragStart.screenSide,
+      pressure: state.pressure, influence: state.influence, height: state.height, minRadius,
+    });
+    camera.updateMatrixWorld();
+    const rect = canvas.getBoundingClientRect();
+    const cameraDistance = camera.position.distanceTo(controls.target);
+    const worldPerPixel = 2 * cameraDistance * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) / Math.max(1, rect.height);
+    const screenUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+    const displacement = verticalPullDisplacement(dy, worldPerPixel, screenUp.y, state.pressure);
+    const pulled = applyVerticalPull({
+      profile: radialProfile, verticalProfile: state.verticalProfile, height: state.height, centerT,
+      displacement, influence: state.influence, thickness: state.thickness, cavityFraction: state.cavity, heightLock: state.heightLock,
+    });
+    state.profile = pulled.profile; state.verticalProfile = pulled.verticalProfile; state.height = pulled.height;
+    dragStart.t = centerT; rebuildClay('light');
+  } else if (gestureTool === 'height') {
+    const oldHeight = state.height;
+    const stretched = applyFullHeightStretch({
+      profile: state.profile, verticalProfile: state.verticalProfile, height: state.height, deltaY: dy,
+      pressure: state.pressure, desiredVolume: dragStart.volume,
+      minRadius: Math.max(0.14, state.thickness + MIN_INNER_RADIUS),
+    });
+    state.height = stretched.height; state.verticalProfile = stretched.verticalProfile; state.profile = stretched.profile;
+    dragStart.volume = estimateVolume(state.profile, state.height, state.verticalProfile);
+    if (Math.abs(state.height - oldHeight) > 0.0001) rebuildClay('light');
+  } else if (gestureTool === 'deform') {
+    camera.updateMatrixWorld();
+    const rect = canvas.getBoundingClientRect();
+    const cameraDistance = camera.position.distanceTo(controls.target);
+    const worldPerPixel = 2 * cameraDistance * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) / Math.max(1, rect.height);
+    const screenUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1);
+    const displacement = verticalPullDisplacement(dy, worldPerPixel, screenUp.y, state.pressure);
+    const centerT = THREE.MathUtils.clamp(dragStart.t - dy * 0.0024, 0.025, 0.985);
+    const pulled = applyVerticalPull({
+      profile: state.profile, verticalProfile: state.verticalProfile, height: state.height, centerT,
+      displacement, influence: state.influence, thickness: state.thickness, cavityFraction: state.cavity, heightLock: state.heightLock,
+    });
+    state.profile = pulled.profile; state.verticalProfile = pulled.verticalProfile; state.height = pulled.height;
+    dragStart.t = centerT; rebuildClay('light');
+  } else if (gestureTool === 'diameter') {
+    const centerT = THREE.MathUtils.clamp(dragStart.t - dy * 0.0024, 0.025, 0.985);
+    state.profile = applyDiameterDrag({
+      profile: state.profile, centerT, deltaX: dx, screenSide: dragStart.screenSide,
+      pressure: state.pressure, influence: state.influence, height: state.height,
+      minRadius: Math.max(0.14, state.thickness + MIN_INNER_RADIUS),
+      preserveVolume: state.preserveVolume, desiredVolume: dragStart.volume,
+      verticalProfile: state.verticalProfile,
+    });
+    dragStart.volume = estimateVolume(state.profile, state.height, state.verticalProfile);
+    dragStart.t = centerT;
+    rebuildClay('light');
   }
+  const cursorHit = hitClay(event);
+  if (cursorHit) updateInfluenceCursor(cursorHit);
   dragStart.x = event.clientX; dragStart.y = event.clientY;
 });
-function stopSculpt() {
+canvas.addEventListener('pointerleave', () => { if (!sculpting) influenceCursor.visible = false; });
+function stopSculpt(event) {
   if (!sculpting) return;
-  const heightChanged = tool === 'stretch' && dragStart && Math.abs(state.height - dragStart.initialHeight) > 1e-4;
+  const heightChanged = ['throw', 'deform', 'height'].includes(dragStart?.gestureTool) && Math.abs(state.height - dragStart.initialHeight) > 1e-4;
+  const touchPointer = event?.pointerType === 'touch' || dragStart?.pointerType === 'touch';
   sculpting = false; dragStart = null; controls.enabled = true; canvas.classList.remove('sculpting'); rebuildClay(); addHistory();
+  if (touchPointer) influenceCursor.visible = false;
   if (heightChanged) scheduleCameraFrame();
 }
 canvas.addEventListener('pointerup', stopSculpt); canvas.addEventListener('pointercancel', stopSculpt); canvas.addEventListener('lostpointercapture', stopSculpt);
@@ -377,19 +528,30 @@ document.querySelectorAll('.mode').forEach((button) => button.addEventListener('
   mode = button.dataset.mode;
   document.querySelectorAll('.mode').forEach((b) => { const active = b === button; b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active)); });
   controls.enabled = true; canvas.classList.toggle('view-only', mode === 'view');
-  $('#canvasHint').textContent = t(mode === 'model' ? 'canvas.model' : 'canvas.view');
+  if (mode === 'view') influenceCursor.visible = false;
 }));
 function setTool(value) {
   tool = value;
+  if (tool === 'height') influenceCursor.visible = false;
+  $('#heightLockLabel').hidden = tool === 'diameter';
   document.querySelectorAll('[data-tool]').forEach((button) => {
     const active = button.dataset.tool === tool;
     button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active));
   });
-  $('#toolHint').textContent = t(tool === 'stretch' ? 'hint.stretch' : tool === 'bilateral' ? 'hint.bilateral' : 'hint.shape');
+  const volumeToggle = $('#preserveVolume');
+  volumeToggle.disabled = tool !== 'diameter';
+  $('#preserveVolumeLabel').classList.toggle('is-disabled', volumeToggle.disabled);
+  const hintKey = tool === 'throw' ? 'hint.throw' : tool === 'deform' ? 'hint.deform' : tool === 'height' ? 'hint.height' : tool === 'smooth' ? 'hint.smooth' : tool === 'sharpen' ? 'hint.sharpen' : tool === 'groove' ? 'hint.groove' : tool === 'ridge' ? 'hint.ridge' : 'hint.diameter';
+  $('#toolHint').textContent = t(hintKey);
 }
 document.querySelectorAll('[data-tool]').forEach((button) => button.addEventListener('click', () => setTool(button.dataset.tool)));
+$('#heightLock').addEventListener('change', (event) => { state.heightLock = event.target.checked; addHistory(); });
+$('#preserveVolume').addEventListener('change', (event) => { state.preserveVolume = event.target.checked; addHistory(); });
 $('#pressure').addEventListener('input', (event) => { state.pressure = Number(event.target.value) / 100; $('#pressureValue').textContent = `${event.target.value}%`; });
-$('#influence').addEventListener('input', (event) => { state.influence = Number(event.target.value) / 100; $('#influenceValue').textContent = `${event.target.value} cm`; });
+$('#influence').addEventListener('input', (event) => {
+  state.influence = Number(event.target.value) / 100; $('#influenceValue').textContent = `${event.target.value} cm`;
+  resizeInfluenceCursor();
+});
 $('#modelResolution').addEventListener('change', (event) => { state.modelResolution = event.target.value; rebuildClay(); });
 $('#exportResolution').addEventListener('change', (event) => { state.exportResolution = event.target.value; });
 $('#adaptiveTopology').addEventListener('change', (event) => { state.adaptiveTopology = event.target.checked; rebuildClay(); });
@@ -400,13 +562,17 @@ $('#imperfections').addEventListener('input', (event) => {
   setClayAppearance(); rebuildClay('light');
 });
 $('#imperfections').addEventListener('change', () => { rebuildClay(); addHistory(); });
+$('#lighting').addEventListener('input', (event) => setAmbientLighting(event.target.value));
 function setHeightCm(value, preview = false) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return false;
   const cm = THREE.MathUtils.clamp(parsed, 2.4, 100);
   const nextHeight = cm / 10;
   if (Math.abs(nextHeight - state.height) > 1e-6) {
-    state.height = nextHeight; rebuildClay(preview ? 'light' : state.modelResolution); scheduleCameraFrame();
+    const verticalScale = nextHeight / state.height;
+    state.height = nextHeight; state.verticalProfile = state.verticalProfile.map((y) => y * verticalScale);
+    state.verticalProfile[RINGS] = state.height;
+    rebuildClay(preview ? 'light' : state.modelResolution); scheduleCameraFrame();
   }
   return true;
 }
@@ -438,17 +604,39 @@ function setWheel(value) {
 }
 $('#wheelToggle').addEventListener('click', () => setWheel(!running));
 $('#undoButton').addEventListener('click', undo); $('#redoButton').addEventListener('click', redo);
+const shortcutsDialog = $('#shortcutsDialog');
+$('#shortcutsButton').addEventListener('click', () => shortcutsDialog.showModal());
+$('#shortcutsClose').addEventListener('click', () => shortcutsDialog.close());
+shortcutsDialog.addEventListener('click', (event) => { if (event.target === shortcutsDialog) shortcutsDialog.close(); });
 document.addEventListener('keydown', (event) => {
-  if (!(event.metaKey || event.ctrlKey) || event.altKey || event.key.toLowerCase() !== 'z') return;
-  if (event.target.closest('input:not([type="range"]):not([type="checkbox"]), textarea, select, [contenteditable="true"]')) return;
-  event.preventDefault();
-  if (event.shiftKey) redo(); else undo();
+  // H remains usable from the focused immersive exit button; other controls retain native keys.
+  const immersiveButtonH = event.key.toLowerCase() === 'h' && event.target.closest?.('#immersiveToggle');
+  const action = resolveShortcut(event, !immersiveButtonH && isShortcutBlockedTarget(event.target));
+  if (!action) return;
+  if (action.type === 'tool') { event.preventDefault(); setTool(action.tool); }
+  else if (action.type === 'wheel') { event.preventDefault(); setWheel(!running); }
+  else if (action.type === 'immersive') { event.preventDefault(); setImmersiveMode(!stage.classList.contains('immersive-mode')); }
+  else if (action.type === 'undo') { event.preventDefault(); undo(); }
+  else if (action.type === 'redo') { event.preventDefault(); redo(); }
+  else if (action.type === 'temporary-smooth' && mode === 'model' && tool !== 'smooth') {
+    shiftToolRestore = tool; setTool('smooth');
+  }
+});
+document.addEventListener('keyup', (event) => {
+  if (event.key !== 'Shift' || shiftToolRestore === null) return;
+  const restoreTool = shiftToolRestore; shiftToolRestore = null;
+  if (tool === 'smooth') setTool(restoreTool);
+});
+window.addEventListener('blur', () => {
+  if (shiftToolRestore === null) return;
+  const restoreTool = shiftToolRestore; shiftToolRestore = null;
+  if (tool === 'smooth') setTool(restoreTool);
 });
 $('#resetButton').addEventListener('click', () => {
   const discardEdits = state.dirty;
   if (!canDiscard()) return;
   const shape = SHAPES.find((item) => item.id === state.shape);
-  state.height = shape.height; state.cavity = shape.cavity; state.profile = createProfile(state.shape, state.presetVersion); setClayAppearance(); rebuildClay();
+  state.height = shape.height; state.verticalProfile = createVerticalProfile(state.height); state.cavity = shape.cavity; state.profile = createProfile(state.shape, state.presetVersion); setClayAppearance(); rebuildClay();
   scheduleCameraFrame();
   if (discardEdits) resetHistory({ pristine: true });
   else if (pristinePresetHistory) addHistory({ clean: true, edit: false });
@@ -464,7 +652,7 @@ function download(data, filename, type) {
 }
 $('#saveProject').addEventListener('click', () => {
   download(JSON.stringify(snapshot(true), null, 2), 'torno-pieza.json', 'application/json');
-  pristinePresetHistory = false; cleanHistoryIndex = historyIndex; state.dirty = false; updateHistoryButtons(); toast(t('toast.projectSaved'));
+  pristinePresetHistory = false; history.markClean(); state.dirty = false; updateHistoryButtons(); toast(t('toast.projectSaved'));
 });
 $('#loadProject').addEventListener('click', () => { if (canDiscard()) $('#projectFile').click(); });
 $('#projectFile').addEventListener('change', async (event) => {
@@ -473,10 +661,10 @@ $('#projectFile').addEventListener('change', async (event) => {
     const data = JSON.parse(await file.text());
     const validShape = SHAPES.some((shape) => shape.id === data.shape), validColor = CLAY_COLORS.some((color) => color.id === data.color);
     const profileValid = Array.isArray(data.profile) && data.profile.length === RINGS + 1 && data.profile.every((r) => Number.isFinite(r) && r >= 0.14 && r <= 1.85);
-    if (![2, 3].includes(data.version) || !validShape || !validColor || !profileValid || !Number.isFinite(data.height) || data.height < 0.24 || data.height > 10 || !Number.isFinite(data.thickness) || data.thickness < 0.01 || data.thickness > 0.32 || (data.imperfections !== undefined && (!Number.isFinite(data.imperfections) || data.imperfections < 0 || data.imperfections > 100))) throw new Error(t('error.invalidProject'));
-    data.version = 3; data.imperfections = Number(data.imperfections ?? 50);
+    if (![2, 3, 4].includes(data.version) || !validShape || !validColor || !profileValid || !Number.isFinite(data.height) || data.height < 0.24 || data.height > 10 || (data.verticalProfile !== undefined && !isValidVerticalProfile(data.verticalProfile, data.height)) || (data.heightLock !== undefined && typeof data.heightLock !== 'boolean') || (data.preserveVolume !== undefined && typeof data.preserveVolume !== 'boolean') || !Number.isFinite(data.thickness) || data.thickness < 0.01 || data.thickness > 0.32 || (data.imperfections !== undefined && (!Number.isFinite(data.imperfections) || data.imperfections < 0 || data.imperfections > 100))) throw new Error(t('error.invalidProject'));
+    data.version = 4; data.imperfections = Number(data.imperfections ?? 50);
     data.cavity = THREE.MathUtils.clamp(Number(data.cavity), 0.12, 0.82); data.thickness = THREE.MathUtils.clamp(data.thickness, 0.01, 0.32);
-    data.pressure = THREE.MathUtils.clamp(Number(data.pressure), 0.05, 1); data.influence = THREE.MathUtils.clamp(Number(data.influence), 0.06, 0.42);
+    data.pressure = THREE.MathUtils.clamp(Number(data.pressure), 0.05, 1); data.influence = THREE.MathUtils.clamp(Number(data.influence), 0.01, 0.42);
     applySnapshot(data); resetHistory(); drawShapeCatalog(); toast(t('toast.pieceLoaded'));
   } catch { toast(t('error.openProject')); }
 });
@@ -485,7 +673,7 @@ function exportMesh(scale = 1, resolution = state.exportResolution) {
   const exportScene = new THREE.Scene();
   const quality = resolutionSettings(resolution);
   const geometry = makeClayGeometry(state.profile, state.height, state.cavity, state.thickness, {
-    ...quality, adaptive: state.adaptiveTopology, imperfections: state.imperfections, surfaceStyle: clayFinish(),
+    ...quality, adaptive: state.adaptiveTopology, imperfections: state.imperfections, surfaceStyle: clayFinish(), verticalProfile: state.verticalProfile,
   });
   const mesh = new THREE.Mesh(geometry, clay.material.clone());
   mesh.position.set(0, 0, 0); mesh.rotation.set(0, 0, 0); mesh.scale.setScalar(scale); exportScene.add(mesh);

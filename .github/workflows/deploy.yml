@@ -37,8 +37,15 @@ jobs:
 
       - name: Run tests
         run: |
-          npm run test:exports
+          npm run test:pull
+          npm run test:diameter
+          npm run test:throw
+          npm run test:smooth
+          npm run test:sharpen
+          npm run test:shortcuts
+          npm run test:groove-ridge
           npm run test:stl
+          npm run test:exports
 
       - name: Build site
         run: npm run build
