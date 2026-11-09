@@ -1,6 +1,6 @@
 # CLAYWHEEL — Virtual Pottery Studio
 
-CLAYWHEEL is a free, browser-based 3D pottery studio for shaping and exploring a hollow clay vessel on a spinning wheel.
+CLAYWHEEL is a free and open-source, browser-based 3D pottery studio for shaping and exploring a hollow clay vessel on a spinning wheel. It is distributed under the MIT License; see [LICENSE](LICENSE).
 
 ## Features
 
