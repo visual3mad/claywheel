@@ -196,12 +196,14 @@ button:hover { filter: brightness(1.2); }
 .geometry-options { gap: 8px; padding-block: 11px 12px; }
 .micro-note { margin-bottom: 12px; }
 .action-grid { gap: 6px; padding: 10px 9px 8px; }
-.small-action { min-height: 32px; padding: 6px 7px; font-size: 9px; transition: color .16s, background .16s, border-color .16s; }
+.small-action { min-height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 6px 7px; font-size: 9px; transition: color .16s, background .16s, border-color .16s; }
+.small-action .icon { width: 13px; height: 13px; }
 .small-action:hover:not(:disabled), .reset-button:hover, .view-control:hover, .play-button:hover { color: #eef1e5; background: #ffffff0d; border-color: #bbc79766; }
 .shape-option, .color-option { transition: color .15s, background .15s, border-color .15s, outline-color .15s, transform .15s; }
 .shape-option:hover { color: #e1e5d7; background: #ffffff09; }
 .color-option:hover { transform: scale(1.08); }
 .view-control { width: 36px; height: 36px; display: grid; place-items: center; }
+.view-chip .icon { width: 14px; height: 14px; color: #b4c486; }
 .wheel-icon .icon { width: 18px; height: 18px; }
 .wheel-icon.spinning .icon { animation: wheel-turn 5s linear infinite; }
 @keyframes wheel-turn { to { transform: rotate(360deg); } }
@@ -418,4 +420,51 @@ button, select, summary { -webkit-tap-highlight-color: transparent; }
   .icon-button { width: 35px; height: 35px; }
   .bottom-panel { left: 7px; right: 7px; padding-inline: 8px; gap: 5px 6px; }
   .reset-button { gap: 4px; padding-inline: 7px; font-size: 8px; }
+}
+
+/* V0.5.1: clearer tool hierarchy and more readable desktop controls. */
+@media (min-width: 901px) {
+  .left-rail { width: 252px; gap: 11px; }
+  .mode-switch { padding: 5px; }
+  .mode { min-height: 38px; font-size: 12px; }
+  .mode .icon { width: 16px; height: 16px; }
+  .mode.active { background: #aab88920; color: #e5ebd7; box-shadow: inset 0 0 0 1px #aab88948; }
+  .tool-card { padding: 16px 15px 14px; }
+  .card-label { color: #a7b18f; font-size: 10px; letter-spacing: .13em; }
+  .tool-options { gap: 7px; margin-top: 13px; }
+  .tool-option {
+    min-height: 68px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; padding: 7px 4px; border-color: #ffffff16; background: #ffffff04;
+  }
+  .tool-option .icon { width: 22px; height: 22px; margin: 0 auto; color: #aeb69e; stroke-width: 1.85; }
+  .tool-option small { margin-top: 1px; color: inherit; font-size: 9px; letter-spacing: .01em; }
+  .tool-option:hover { border-color: #aab88950; background: #aab8890c; color: #e0e6d3; }
+  .tool-option.active { border-color: #bcc9959a; background: #aab88920; color: #e3e9d5; box-shadow: inset 0 0 0 1px #aab88920; }
+  .tool-option.active .icon { color: #d0dba8; }
+  .tool-hint { margin: 8px 0 15px; color: #a0a898; font-size: 11px; line-height: 1.45; }
+  .slider-label, .control-fold .slider-label { margin-bottom: 7px; color: #a7ae9e; font-size: 10px; letter-spacing: .075em; }
+  .slider-label output { color: #e0e5d4; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .height-entry { gap: 9px; font-size: 11px; }
+  .height-entry input { font-size: 12px; }
+  .control-fold summary { padding: 13px 13px; color: #d0d6c5; font-size: 10px; font-weight: 600; letter-spacing: .11em; }
+  .compact-label { margin: 12px 12px 7px; color: #a5ad9b; font-size: 9px; }
+  .control-fold > select { width: calc(100% - 24px); margin-inline: 12px; font-size: 10px; }
+  .geometry-options { gap: 7px; padding: 12px; }
+  .geometry-options label { gap: 8px; color: #b4bbab; font-size: 10px; }
+  .micro-note { margin: 0 12px 12px; color: #899282; font-size: 9px; line-height: 1.55; }
+  .shape-catalog { gap: 6px; padding: 9px; }
+  .shape-option { padding: 6px 3px 7px; font-size: 9px; }
+  .shape-option svg { width: 30px; height: 32px; }
+  .clay-colors { padding: 13px 12px 15px; }
+  .color-option { width: 25px; height: 25px; }
+  .action-grid { gap: 7px; padding: 11px 10px 8px; }
+  .small-action { min-height: 36px; gap: 6px; padding-inline: 8px; font-size: 10px; }
+  .small-action .icon { width: 15px; height: 15px; }
+  .hint-card { gap: 10px; padding: 13px; font-size: 10px; line-height: 1.55; }
+  .hint-card b { font-size: 9px; }
+}
+@media (max-width: 900px) {
+  .tool-option .icon { width: 19px; height: 19px; }
+  .tool-option small { font-size: 8px; }
+  .tool-option.active .icon { color: #d0dba8; }
 }

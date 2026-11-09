@@ -38,9 +38,9 @@
           <div class="tool-card">
             <div class="card-label" data-i18n="tool.active">ACTIVE TOOL</div>
             <div class="tool-options" role="group" data-i18n-aria-label="tool.group" aria-label="Modeling tools">
-              <button class="tool-option active" data-tool="shape" data-i18n-aria-label="tool.shape" data-i18n-title="tool.shape" aria-label="Soft shaping" title="Soft shaping" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#icon-sculpt" /></svg><small data-i18n="tool.shape.short">Soft</small></button>
-              <button class="tool-option" data-tool="bilateral" data-i18n-aria-label="tool.bilateral" data-i18n-title="tool.bilateral" aria-label="Bilateral pressure" title="Bilateral pressure" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-move-horizontal" /></svg><small data-i18n="tool.bilateral.short">Bilateral</small></button>
-              <button class="tool-option" data-tool="stretch" data-i18n-aria-label="tool.stretch" data-i18n-title="tool.stretch" aria-label="Stretch" title="Stretch" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-move-vertical" /></svg><small data-i18n="tool.stretch.short">Stretch</small></button>
+              <button class="tool-option active" data-tool="shape" data-i18n-aria-label="tool.shape" data-i18n-title="tool.shape" aria-label="Soft shaping" title="Soft shaping" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#icon-hand" /></svg><small data-i18n="tool.shape.short">Soft</small></button>
+              <button class="tool-option" data-tool="bilateral" data-i18n-aria-label="tool.bilateral" data-i18n-title="tool.bilateral" aria-label="Bilateral pressure" title="Bilateral pressure" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-arrows-left-right" /></svg><small data-i18n="tool.bilateral.short">Bilateral</small></button>
+              <button class="tool-option" data-tool="stretch" data-i18n-aria-label="tool.stretch" data-i18n-title="tool.stretch" aria-label="Stretch" title="Stretch" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-arrows-up-down" /></svg><small data-i18n="tool.stretch.short">Stretch</small></button>
             </div>
             <span class="tool-hint" id="toolHint" data-i18n="hint.shape">Drag to shape the clay</span>
             <label class="slider-label" for="heightControl"><span data-i18n="control.height">Height</span> <output id="heightValue">6.2 cm</output></label>
@@ -84,12 +84,12 @@
           <details class="control-fold" open>
             <summary data-i18n="panel.project">Project and export</summary>
             <div class="action-grid">
-              <button id="saveProject" class="small-action" data-i18n="action.saveJson" data-i18n-title="title.saveJson" title="Save CLAYWHEEL project as JSON">Save JSON</button>
-              <button id="loadProject" class="small-action" data-i18n="action.loadJson" data-i18n-title="title.loadJson" title="Open a CLAYWHEEL JSON project">Open JSON</button>
-              <button id="exportGlb" class="small-action" data-i18n="action.exportGlb" data-i18n-title="title.exportGlb" title="Export piece with geometry and material as GLB">Export GLB</button>
-              <button id="exportObj" class="small-action" data-i18n="action.exportObj" data-i18n-title="title.exportObj" title="Export OBJ geometry">Export OBJ</button>
-              <button id="exportStl" class="small-action" data-i18n="action.exportStl" data-i18n-title="title.exportStl" title="Export STL mesh in millimeters">Export STL</button>
-              <button id="capturePng" class="small-action" data-i18n="action.capturePng" data-i18n-title="title.capturePng" title="Capture a PNG image of the studio">Capture PNG</button>
+              <button id="saveProject" class="small-action" data-i18n-title="title.saveJson" title="Save CLAYWHEEL project as JSON"><svg class="icon" aria-hidden="true"><use href="#icon-file-json" /></svg><span data-i18n="action.saveJson">Save JSON</span></button>
+              <button id="loadProject" class="small-action" data-i18n-title="title.loadJson" title="Open a CLAYWHEEL JSON project"><svg class="icon" aria-hidden="true"><use href="#icon-folder-open" /></svg><span data-i18n="action.loadJson">Open JSON</span></button>
+              <button id="exportGlb" class="small-action" data-i18n-title="title.exportGlb" title="Export piece with geometry and material as GLB"><svg class="icon" aria-hidden="true"><use href="#icon-cube" /></svg><span data-i18n="action.exportGlb">Export GLB</span></button>
+              <button id="exportObj" class="small-action" data-i18n-title="title.exportObj" title="Export OBJ geometry"><svg class="icon" aria-hidden="true"><use href="#icon-layers-3" /></svg><span data-i18n="action.exportObj">Export OBJ</span></button>
+              <button id="exportStl" class="small-action" data-i18n-title="title.exportStl" title="Export STL mesh in millimeters"><svg class="icon" aria-hidden="true"><use href="#icon-triangle" /></svg><span data-i18n="action.exportStl">Export STL</span></button>
+              <button id="capturePng" class="small-action" data-i18n-title="title.capturePng" title="Capture a PNG image of the studio"><svg class="icon" aria-hidden="true"><use href="#icon-image" /></svg><span data-i18n="action.capturePng">Capture PNG</span></button>
             </div>
             <label class="slider-label resolution-label" for="captureScale" data-i18n="control.pngResolution">PNG resolution</label>
             <select id="captureScale"><option value="1">1×</option><option value="2" selected>2×</option><option value="3">3×</option></select>
@@ -100,7 +100,7 @@
         </div>
 
         <div class="right-rail">
-          <label class="view-chip" for="cameraView"><span class="view-dot"></span> <span data-i18n="camera.chip">3D VIEW</span> <span>·</span>
+          <label class="view-chip" for="cameraView"><svg class="icon" aria-hidden="true"><use href="#icon-camera" /></svg> <span data-i18n="camera.chip">3D VIEW</span> <span>·</span>
             <select id="cameraView" data-i18n-aria-label="camera.label" aria-label="Camera view">
               <option value="perspective" data-i18n="camera.perspective">Perspective</option>
               <option value="front" data-i18n="camera.front">Front</option>
@@ -109,12 +109,12 @@
             </select>
           </label>
           <div class="orbit-hint"><span data-i18n="camera.orbit">Drag to orbit</span> <i>·</i> <span data-i18n="camera.zoom">Scroll to zoom</span></div>
-          <button class="view-control" id="homeView" type="button" data-i18n-title="camera.home" data-i18n-aria-label="camera.home" title="Center and restore view" aria-label="Center and restore view"><svg class="icon" aria-hidden="true"><use href="#icon-focus" /></svg></button>
+          <button class="view-control" id="homeView" type="button" data-i18n-title="camera.home" data-i18n-aria-label="camera.home" title="Center and restore view" aria-label="Center and restore view"><svg class="icon" aria-hidden="true"><use href="#icon-locate-fixed" /></svg></button>
         </div>
 
         <div class="bottom-panel">
           <div class="wheel-control">
-            <div class="wheel-icon spinning" aria-hidden="true"><svg class="icon"><use href="#icon-rotate-cw" /></svg></div>
+            <div class="wheel-icon spinning" aria-hidden="true"><svg class="icon"><use href="#icon-disc-3" /></svg></div>
             <div class="wheel-copy"><b data-i18n="wheel.name">WHEEL</b><small id="wheelStatus">SPINNING · 72 RPM</small></div>
             <button id="wheelToggle" class="play-button" type="button" data-i18n-aria-label="wheel.pause" data-i18n-title="wheel.pause" aria-label="Pause wheel" title="Pause wheel"><svg class="icon" aria-hidden="true"><use href="#icon-pause" /></svg></button>
           </div>
@@ -133,17 +133,24 @@
       <symbol id="icon-undo-2" viewBox="0 0 24 24"><path d="m9 14-5-5 5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-2"/></symbol>
       <symbol id="icon-redo-2" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h2"/></symbol>
       <symbol id="icon-rotate-ccw" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M3.5 13a8 8 0 1 0 2.2-7.6L3 8"/></symbol>
-      <symbol id="icon-rotate-cw" viewBox="0 0 24 24"><path d="M21 7v6h-6"/><path d="M20.5 13a8 8 0 1 1-2.2-7.6L21 8"/></symbol>
-      <symbol id="icon-focus" viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3"/><path d="M16 4h3a1 1 0 0 1 1 1v3"/><path d="M20 16v3a1 1 0 0 1-1 1h-3"/><path d="M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="icon-locate-fixed" viewBox="0 0 24 24"><path d="M12 2v3"/><path d="M12 19v3"/><path d="M2 12h3"/><path d="M19 12h3"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/></symbol>
+      <symbol id="icon-disc-3" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.5"/></symbol>
       <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M10 5H6v14h4z"/><path d="M18 5h-4v14h4z"/></symbol>
       <symbol id="icon-play" viewBox="0 0 24 24"><path d="m7 4 13 8-13 8z"/></symbol>
-      <symbol id="icon-sculpt" viewBox="0 0 24 24"><path d="M12 3c-4.7 0-8 3.4-8 8 0 4 2.2 7.2 5.5 9 .8.4 1.5-.2 1.5-1v-2.2c0-.8.6-1.4 1.4-1.4h1.2a2.4 2.4 0 0 0 0-4.8H11a2 2 0 0 1 0-4h2a2 2 0 0 0 0-4z"/><path d="M17.5 4.5h.01M20 8h.01M19 15h.01"/></symbol>
+      <symbol id="icon-hand" viewBox="0 0 24 24"><path d="M8 12V5.5a1.5 1.5 0 0 1 3 0V11"/><path d="M11 10V4.5a1.5 1.5 0 0 1 3 0V11"/><path d="M14 10V6a1.5 1.5 0 0 1 3 0v7"/><path d="M17 12v-1a1.5 1.5 0 0 1 3 0v4a6 6 0 0 1-6 6h-2a6 6 0 0 1-5-2.7l-2.3-3.2a1.7 1.7 0 0 1 2.7-2.1L8 14"/></symbol>
       <symbol id="icon-orbit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><ellipse cx="12" cy="12" rx="9" ry="4.5" transform="rotate(-30 12 12)"/><path d="m18.8 5.7 1.5 2.4-2.8.3"/></symbol>
-      <symbol id="icon-move-horizontal" viewBox="0 0 24 24"><path d="M8 8 4 12l4 4"/><path d="m16 8 4 4-4 4"/><path d="M4 12h16"/></symbol>
-      <symbol id="icon-move-vertical" viewBox="0 0 24 24"><path d="m8 8 4-4 4 4"/><path d="m8 16 4 4 4-4"/><path d="M12 4v16"/></symbol>
+      <symbol id="icon-arrows-left-right" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></symbol>
+      <symbol id="icon-arrows-up-down" viewBox="0 0 24 24"><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/></symbol>
       <symbol id="icon-chevron-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol>
       <symbol id="icon-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
       <symbol id="icon-pencil" viewBox="0 0 24 24"><path d="m16 5 3 3"/><path d="M4 20l4-.9L19 8a2.1 2.1 0 0 0-3-3L5 16z"/><path d="M14 7l3 3"/></symbol>
+      <symbol id="icon-file-json" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M10 13c-1 0-1 .7-1 1.5S9 16 8 16"/><path d="M14 13c1 0 1 .7 1 1.5s0 1.5 1 1.5"/></symbol>
+      <symbol id="icon-folder-open" viewBox="0 0 24 24"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H10l2 2h7.5A1.5 1.5 0 0 1 21 9.5v1"/><path d="M3 8v10a2 2 0 0 0 2 2h13a2 2 0 0 0 1.9-1.4L22 12H6l-1.5 6"/></symbol>
+      <symbol id="icon-cube" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="M3 8v9l9 5 9-5V8"/><path d="M12 13v9"/></symbol>
+      <symbol id="icon-layers-3" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 16 9 5 9-5"/></symbol>
+      <symbol id="icon-triangle" viewBox="0 0 24 24"><path d="m12 3 10 18H2z"/><path d="m12 3-2 12 12 6"/></symbol>
+      <symbol id="icon-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></symbol>
+      <symbol id="icon-camera" viewBox="0 0 24 24"><path d="M14 4h-4L8 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-4z"/><circle cx="12" cy="13" r="3"/></symbol>
     </svg>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script type="module" src="/src/main.js"></script>
