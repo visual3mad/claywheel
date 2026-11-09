@@ -9,7 +9,8 @@ export const GEOMETRY_RESOLUTIONS = {
   high: { rings: 128, segments: 160 },
 };
 export const SHAPES = [
-  { id: 'cylinder', name: 'Cilindro', height: 0.62, cavity: 0.43, profile: (t) => 0.79 - 0.04 * smooth(0.92, 1, t) + 0.015 * smooth(0, 0.045, t) },
+  { id: 'cylinder', name: 'Cilindro', height: 0.62, cavity: 0.43, profile: (t) => 0.79 - 0.04 * smooth(0.92, 1, t) + 0.015 * smooth(0, 0.045, t),
+    freshProfile: (t) => 0.79 - 0.008 * smooth(0.97, 1, t) + 0.008 * smooth(0, 0.025, t) },
   { id: 'bowl', name: 'Cuenco', height: 0.9, cavity: 0.2, profile: (t) => 0.24 + 0.73 * Math.pow(t, 1.65) },
   { id: 'cup', name: 'Vaso', height: 1.24, cavity: 0.34, profile: (t) => 0.47 + 0.2 * smooth(0.08, 0.42, t) + 0.035 * smooth(0.82, 1, t) },
   { id: 'vase', name: 'Jarrón', height: 1.45, cavity: 0.39, profile: (t) => 0.29 + 0.42 * Math.sin(Math.PI * Math.pow(t, 0.78)) + 0.16 * smooth(0.77, 1, t) - 0.15 * smooth(0.65, 0.87, t) },
@@ -18,7 +19,7 @@ export const SHAPES = [
 ];
 
 export const CLAY_COLORS = [
-  { id: 'terracotta', name: 'Terracota', color: '#a95739' },
+  { id: 'terracotta', name: 'Terracota', color: '#6b5143' },
   { id: 'white', name: 'Blanca', color: '#d0c6b0' },
   { id: 'gray', name: 'Gris', color: '#898982' },
   { id: 'black', name: 'Negra', color: '#353b3b' },
@@ -31,16 +32,18 @@ export function smooth(a, b, x) {
   return t * t * (3 - 2 * t);
 }
 
-export function createProfile(shapeId = 'vase') {
+export function createProfile(shapeId = 'vase', presetVersion = 2) {
   const shape = SHAPES.find((item) => item.id === shapeId) || SHAPES[0];
-  return Array.from({ length: RINGS + 1 }, (_, i) => Math.max(0.12, shape.profile(i / RINGS)));
+  const profile = shapeId === 'cylinder' && presetVersion >= 2 ? shape.freshProfile : shape.profile;
+  return Array.from({ length: RINGS + 1 }, (_, i) => Math.max(0.12, profile(i / RINGS)));
 }
 
-export function makeClayMaterial(color = '#a95739') {
-  const map = noiseTexture(256, 43);
+export function makeClayMaterial(color = '#a95739', finish = 'classic') {
+  const freshClay = finish === 'fresh';
+  const map = noiseTexture(256, 43, false, freshClay);
   return new THREE.MeshStandardMaterial({
-    color, roughness: 0.86, metalness: 0.008, side: THREE.DoubleSide,
-    bumpMap: map, bumpScale: 0.012, roughnessMap: map,
+    color, roughness: freshClay ? 0.55 : 0.86, metalness: 0.008, side: THREE.DoubleSide,
+    bumpMap: map, bumpScale: freshClay ? 0.0035 : 0.012, roughnessMap: map,
   });
 }
 
@@ -53,7 +56,7 @@ export function makeMetalMaterial() {
   });
 }
 
-function noiseTexture(size, seed, brushed = false) {
+function noiseTexture(size, seed, brushed = false, organic = false) {
   const canvas = document.createElement('canvas'); canvas.width = size; canvas.height = size;
   const context = canvas.getContext('2d');
   const image = context.createImageData(size, size);
@@ -62,7 +65,10 @@ function noiseTexture(size, seed, brushed = false) {
     state = (state * 1664525 + 1013904223) >>> 0;
     const grain = (state >>> 24) & 255;
     const bands = brushed ? (Math.sin(y * 1.3) * 12 + Math.sin(y * 0.31) * 8) : 0;
-    const v = THREE.MathUtils.clamp(188 + (grain - 128) * (brushed ? 0.2 : 0.15) + bands, 0, 255);
+    const softVariation = organic
+      ? Math.sin(x * 0.035 + Math.sin(y * 0.013)) * 2.2 + Math.sin(y * 0.052 + Math.sin(x * 0.01)) * 1.6 + (grain - 128) * 0.035
+      : (grain - 128) * (brushed ? 0.2 : 0.15);
+    const v = THREE.MathUtils.clamp(188 + softVariation + bands, 0, 255);
     const p = (y * size + x) * 4;
     image.data[p] = image.data[p + 1] = image.data[p + 2] = v; image.data[p + 3] = 255;
   }
@@ -100,6 +106,7 @@ export function makeClayGeometry(profile, height, cavityFraction, thickness, opt
   const ringCount = Math.max(3, Math.floor(options.rings ?? RINGS));
   const segmentCount = Math.max(12, Math.floor(options.segments ?? SEGMENTS));
   const adaptive = options.adaptive === true;
+  const freshClay = options.surfaceStyle === 'fresh';
   const imperfections = THREE.MathUtils.clamp(options.imperfections ?? 50, 0, 100) / 50;
   const vertsPerRow = segmentCount + 1;
   const outerLevels = profileRings(profile, ringCount, adaptive);
@@ -119,7 +126,10 @@ export function makeClayGeometry(profile, height, cavityFraction, thickness, opt
       for (let k = 0; k <= segmentCount; k++) {
         // Keep the UV seam duplicated, but make both endpoint positions exact.
         const a = k === segmentCount ? 0 : (k / segmentCount) * Math.PI * 2;
-        const throwing = imperfections * (0.0017 * Math.sin(t * Math.PI * 16 + a * 3) + 0.0007 * Math.sin(t * Math.PI * 30 - a * 2));
+        const throwing = freshClay
+          ? imperfections * (0.00031 * Math.sin(t * Math.PI * (8.1 + 0.24 * Math.sin(t * 5.4)) + 0.32 * Math.sin(a * 1.7))
+            + 0.000095 * Math.sin(t * Math.PI * 2.7 + a * 3.3) + 0.000045 * Math.sin(t * Math.PI * 27.4 + a * 1.13))
+          : imperfections * (0.0017 * Math.sin(t * Math.PI * 16 + a * 3) + 0.0007 * Math.sin(t * Math.PI * 30 - a * 2));
         positions.push(Math.cos(a) * Math.max(MIN_INNER_RADIUS * 0.5, radius + throwing), y, Math.sin(a) * Math.max(MIN_INNER_RADIUS * 0.5, radius + throwing));
         const v = side === 0 ? t : (t - cavityFraction) / (1 - cavityFraction);
         uvs.push(k / segmentCount, v);
@@ -136,7 +146,24 @@ export function makeClayGeometry(profile, height, cavityFraction, thickness, opt
   }
   const outerTop = ringCount * vertsPerRow, innerTop = (ringCount + 1) * vertsPerRow + ringCount * vertsPerRow;
   // The lip faces upward, matching the outward winding of the STL shell.
-  for (let k = 0; k < segmentCount; k++) indices.push(outerTop + k, innerTop + k, outerTop + k + 1, outerTop + k + 1, innerTop + k, innerTop + k + 1);
+  // Fresh clay gets split render normals at both sharp rim edges; coincident
+  // positions keep the closed shell and the same physical wall thickness.
+  let lipOuterTop = outerTop, lipInnerTop = innerTop;
+  if (freshClay) {
+    lipOuterTop = positions.length / 3;
+    for (let k = 0; k <= segmentCount; k++) {
+      const source = outerTop + k;
+      positions.push(positions[source * 3], positions[source * 3 + 1], positions[source * 3 + 2]);
+      uvs.push(uvs[source * 2], uvs[source * 2 + 1]);
+    }
+    lipInnerTop = positions.length / 3;
+    for (let k = 0; k <= segmentCount; k++) {
+      const source = innerTop + k;
+      positions.push(positions[source * 3], positions[source * 3 + 1], positions[source * 3 + 2]);
+      uvs.push(uvs[source * 2], uvs[source * 2 + 1]);
+    }
+  }
+  for (let k = 0; k < segmentCount; k++) indices.push(lipOuterTop + k, lipInnerTop + k, lipOuterTop + k + 1, lipOuterTop + k + 1, lipInnerTop + k, lipInnerTop + k + 1);
   const innerBase = (ringCount + 1) * vertsPerRow;
   const floorCenter = positions.length / 3;
   positions.push(0, cavityY, 0); uvs.push(0.5, 0.5);

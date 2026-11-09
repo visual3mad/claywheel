@@ -6,10 +6,12 @@ import {
   RINGS, SEGMENTS, MIN_INNER_RADIUS, GEOMETRY_RESOLUTIONS, SHAPES, CLAY_COLORS, createProfile, makeClayGeometry,
   makeClayMaterial, makeMetalMaterial, estimateVolume, conserveProfileVolume,
 } from './ceramic.js';
+import { applyTranslations, getLocale, setLocale, t } from './i18n.js';
 import './style.css';
 
 RectAreaLightUniformsLib.init();
 const $ = (selector) => document.querySelector(selector);
+applyTranslations();
 const rangeInputs = [...document.querySelectorAll('input[type="range"]')];
 function syncRangeProgress(input) {
   const min = Number(input.min || 0), max = Number(input.max || 100), value = Number(input.value || 0);
@@ -79,14 +81,34 @@ for (let i = 0; i < 12; i++) {
 }
 
 const state = {
-  shape: 'cylinder', color: 'terracotta', profile: createProfile('cylinder'),
+  shape: 'cylinder', presetVersion: 2, appearanceVersion: 2, color: 'terracotta', profile: createProfile('cylinder', 2),
   height: 0.62, cavity: 0.43, thickness: 0.11,
   modelResolution: 'balanced', exportResolution: 'standard', adaptiveTopology: true,
   smoothVisual: true, prioritizeQuads: true, imperfections: 50,
   pressure: 0.42, influence: 0.18, dirty: false,
 };
-const clay = new THREE.Mesh(new THREE.BufferGeometry(), makeClayMaterial('#a95739'));
+const LEGACY_TERRACOTTA = '#a95739';
+const clay = new THREE.Mesh(new THREE.BufferGeometry(), makeClayMaterial(CLAY_COLORS.find((color) => color.id === state.color)?.color || '#6b5143', 'fresh'));
+clay.material.userData.clayFinish = 'fresh';
 clay.castShadow = true; clay.receiveShadow = true; clay.position.y = 0.22; turntable.add(clay);
+function clayFinish() { return state.shape === 'cylinder' && state.presetVersion >= 2 ? 'fresh' : 'classic'; }
+function clayColor(id = state.color) {
+  if (id === 'terracotta' && (state.appearanceVersion < 2 || clayFinish() !== 'fresh')) return LEGACY_TERRACOTTA;
+  return CLAY_COLORS.find((color) => color.id === id)?.color || '#6b5143';
+}
+function setClayAppearance() {
+  const finish = clayFinish();
+  if (clay.material.userData.clayFinish !== finish) {
+    const previous = clay.material;
+    clay.material = makeClayMaterial(clayColor(), finish);
+    new Set([previous.map, previous.bumpMap, previous.roughnessMap].filter(Boolean)).forEach((texture) => texture.dispose());
+    previous.dispose();
+    clay.material.userData.clayFinish = finish;
+  } else clay.material.color.set(clayColor());
+  clay.material.flatShading = !state.smoothVisual;
+  clay.material.bumpScale = (finish === 'fresh' ? 0.0035 : 0.012) * (state.imperfections / 50);
+  clay.material.needsUpdate = true;
+}
 function resolutionSettings(level) {
   const key = level === 'standard' ? 'balanced' : level;
   return GEOMETRY_RESOLUTIONS[key] || GEOMETRY_RESOLUTIONS.balanced;
@@ -102,14 +124,14 @@ function rebuildClay(resolution = state.modelResolution) {
   const quality = resolutionSettings(resolution);
   clay.geometry = makeClayGeometry(state.profile, state.height, state.cavity, state.thickness, {
     ...quality, adaptive: state.adaptiveTopology, imperfections: state.imperfections,
+    surfaceStyle: clayFinish(),
   });
-  clay.material.flatShading = !state.smoothVisual; clay.material.needsUpdate = true;
-  clay.material.bumpScale = 0.012 * (state.imperfections / 50);
+  setClayAppearance();
   old.dispose(); updatePieceMeta();
 }
 function updatePieceMeta() {
   const selected = SHAPES.find((shape) => shape.id === state.shape);
-  $('#pieceName').textContent = selected?.name.toLocaleUpperCase('es') || 'PIEZA';
+  $('#pieceName').textContent = (selected ? t(`shape.${selected.id}`) : t('piece.generic')).toLocaleUpperCase(getLocale());
   $('#pieceHeight').textContent = `${(state.height * 10).toFixed(1)} cm`;
   $('#heightControl').value = (state.height * 10).toFixed(1);
   if (document.activeElement !== $('#heightExact')) $('#heightExact').value = (state.height * 10).toFixed(1);
@@ -142,7 +164,18 @@ controls.addEventListener('start', () => { cameraTransition = null; });
 function cameraFitDistance() {
   const halfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5));
   const radius = Math.max(...state.profile);
-  return Math.max(3.2, state.height / (1.42 * halfFov), (2 * radius) / (1.42 * halfFov * Math.max(0.45, camera.aspect)));
+  const standardFit = Math.max(3.2, state.height / (1.42 * halfFov), (2 * radius) / (1.42 * halfFov * Math.max(0.45, camera.aspect)));
+  const responsive = window.matchMedia('(max-width: 900px), (max-height: 520px) and (orientation: landscape)').matches;
+  if (!responsive) return standardFit;
+  const stageRect = stage.getBoundingClientRect();
+  const topbarBottom = $('.topbar').getBoundingClientRect().bottom;
+  const sheetOpen = $('#toolSheet').dataset.sheetOpen === 'true';
+  const obstructionTop = (sheetOpen ? $('#toolSheet') : $('.bottom-panel')).getBoundingClientRect().top;
+  const visibleHeight = THREE.MathUtils.clamp((obstructionTop - topbarBottom) / Math.max(1, stageRect.height), 0.18, 0.94);
+  const wheelFit = 1.3 / (halfFov * Math.max(0.2, camera.aspect) * 0.95);
+  const assemblyHeight = state.height + 0.55;
+  const visibleAreaFit = assemblyHeight / (2 * halfFov * visibleHeight * 0.87);
+  return Math.max(standardFit, wheelFit, visibleAreaFit);
 }
 function scheduleCameraFrame(view = activeCameraView, forcePreset = false) {
   const changedView = view !== activeCameraView;
@@ -155,7 +188,21 @@ function scheduleCameraFrame(view = activeCameraView, forcePreset = false) {
         : view === 'top' ? new THREE.Vector3(0.001, 1, 0.18).normalize()
           : perspective
     : camera.position.clone().sub(controls.target).normalize();
-  const distance = cameraFitDistance() * 1.08;
+  const responsiveCamera = window.matchMedia('(max-width: 900px), (max-height: 520px) and (orientation: landscape)').matches;
+  const distance = cameraFitDistance() * (responsiveCamera ? 1.02 : 1.08);
+  if (responsiveCamera) {
+    const stageRect = stage.getBoundingClientRect();
+    const top = $('.topbar').getBoundingClientRect().bottom;
+    const bottomSelector = $('#toolSheet').dataset.sheetOpen === 'true' ? '#toolSheet' : '.bottom-panel';
+    const bottomEdge = $(bottomSelector).getBoundingClientRect().top;
+    const centerFraction = THREE.MathUtils.clamp(((top + bottomEdge) * 0.5 - stageRect.top) / Math.max(1, stageRect.height), 0.15, 0.5);
+    const screenUp = new THREE.Vector3(0, 1, 0).addScaledVector(direction, -direction.y);
+    if (screenUp.lengthSq() > 1e-6) {
+      screenUp.normalize();
+      const verticalSpan = 2 * distance * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5));
+      target.addScaledVector(screenUp, -(0.5 - centerFraction) * verticalSpan);
+    }
+  }
   cameraTransition = { target, position: target.clone().addScaledVector(direction, distance) };
   scene.fog.near = Math.max(8, distance + state.height * 0.25);
   scene.fog.far = Math.max(18, distance + state.height * 1.75);
@@ -170,7 +217,8 @@ const canvas = renderer.domElement;
 
 function snapshot(includePreferences = false) {
   const data = {
-    version: 3, shape: state.shape, color: state.color, profile: [...state.profile], height: state.height,
+    version: 3, shape: state.shape, presetVersion: state.presetVersion, appearanceVersion: state.appearanceVersion,
+    color: state.color, profile: [...state.profile], height: state.height,
     cavity: state.cavity, thickness: state.thickness, imperfections: state.imperfections,
     pressure: state.pressure, influence: state.influence,
   };
@@ -182,6 +230,8 @@ function snapshot(includePreferences = false) {
 }
 function applySnapshot(data) {
   state.shape = data.shape; state.color = data.color; state.profile = [...data.profile]; state.height = data.height;
+  state.presetVersion = data.shape === 'cylinder' && data.presetVersion === 2 ? 2 : data.shape === 'cylinder' ? 1 : 2;
+  state.appearanceVersion = data.appearanceVersion === 2 ? 2 : 1;
   state.cavity = data.cavity; state.thickness = data.thickness; state.pressure = data.pressure; state.influence = data.influence;
   state.imperfections = THREE.MathUtils.clamp(Number(data.imperfections ?? 50), 0, 100);
   if (['light', 'balanced', 'high'].includes(data.modelResolution)) state.modelResolution = data.modelResolution;
@@ -189,7 +239,7 @@ function applySnapshot(data) {
   if (typeof data.adaptiveTopology === 'boolean') state.adaptiveTopology = data.adaptiveTopology;
   if (typeof data.smoothVisual === 'boolean') state.smoothVisual = data.smoothVisual;
   if (typeof data.prioritizeQuads === 'boolean') state.prioritizeQuads = data.prioritizeQuads;
-  clay.material.color.set(CLAY_COLORS.find((color) => color.id === state.color)?.color || '#a95739');
+  setClayAppearance();
   $('#heightControl').value = (state.height * 10).toFixed(1); $('#heightExact').value = (state.height * 10).toFixed(1); $('#heightValue').textContent = `${(state.height * 10).toFixed(1)} cm`;
   $('#pressure').value = Math.round(state.pressure * 100); $('#pressureValue').textContent = `${Math.round(state.pressure * 100)}%`;
   $('#influence').value = Math.round(state.influence * 100); $('#influenceValue').textContent = `${Math.round(state.influence * 100)} cm`;
@@ -214,10 +264,10 @@ function updateDirtyFromHistory() { state.dirty = pristinePresetHistory ? false 
 function undo() { if (historyIndex <= 0) return; historyIndex--; applySnapshot(history[historyIndex]); updateDirtyFromHistory(); }
 function redo() { if (historyIndex >= history.length - 1) return; historyIndex++; applySnapshot(history[historyIndex]); updateDirtyFromHistory(); }
 function toast(message) { const el = $('#toast'); el.textContent = message; el.classList.add('visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('visible'), 2600); }
-function canDiscard() { return !state.dirty || window.confirm('Hay cambios sin guardar. ¿Quieres descartarlos y continuar?'); }
+function canDiscard() { return !state.dirty || window.confirm(t('confirm.discard')); }
 
 function drawShapeCatalog() {
-  $('#shapeCatalog').innerHTML = SHAPES.map((shape) => `<button class="shape-option${state.shape === shape.id ? ' selected' : ''}" data-shape="${shape.id}" title="${shape.name}"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="${shapePath(shape)}"/></svg><span>${shape.name}</span></button>`).join('');
+  $('#shapeCatalog').innerHTML = SHAPES.map((shape) => { const name = t(`shape.${shape.id}`); return `<button class="shape-option${state.shape === shape.id ? ' selected' : ''}" data-shape="${shape.id}" title="${name}"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="${shapePath(shape)}"/></svg><span>${name}</span></button>`; }).join('');
   $('#shapeCatalog').querySelectorAll('[data-shape]').forEach((button) => button.addEventListener('click', () => selectShape(button.dataset.shape)));
 }
 function shapePath(shape) {
@@ -231,22 +281,47 @@ function selectShape(id) {
   const discardEdits = state.dirty;
   if (!canDiscard()) return;
   const shape = SHAPES.find((item) => item.id === id); if (!shape) return;
-  state.shape = id; state.height = shape.height; state.cavity = shape.cavity;
-  state.profile = createProfile(id); rebuildClay(); drawShapeCatalog();
+  state.shape = id; state.presetVersion = 2; if (id === 'cylinder') state.appearanceVersion = 2;
+  state.height = shape.height; state.cavity = shape.cavity;
+  state.profile = createProfile(id, state.presetVersion); setClayAppearance(); rebuildClay(); drawShapeCatalog(); drawColors();
   if (discardEdits) resetHistory({ pristine: true });
   else if (pristinePresetHistory) addHistory({ clean: true, edit: false });
   else addHistory();
-  scheduleCameraFrame(); toast(`${shape.name} preparado para modelar`);
+  scheduleCameraFrame(); toast(t('toast.shape', { shape: t(`shape.${shape.id}`) }));
 }
 function drawColors() {
-  $('#clayColors').innerHTML = CLAY_COLORS.map((color) => `<button class="color-option${state.color === color.id ? ' selected' : ''}" data-color="${color.id}" title="Arcilla ${color.name}" aria-label="Arcilla ${color.name}" style="--swatch:${color.color}"></button>`).join('');
+  $('#clayColors').innerHTML = CLAY_COLORS.map((color) => { const name = t(`color.${color.id}`); const label = `${t('panel.clay')}: ${name}`; const swatch = clayColor(color.id); return `<button class="color-option${state.color === color.id ? ' selected' : ''}" data-color="${color.id}" title="${label}" aria-label="${label}" style="--swatch:${swatch}"></button>`; }).join('');
   $('#clayColors').querySelectorAll('[data-color]').forEach((button) => button.addEventListener('click', () => {
     const color = CLAY_COLORS.find((item) => item.id === button.dataset.color); if (!color || color.id === state.color) return;
-    state.color = color.id; clay.material.color.set(color.color); drawColors(); addHistory();
+    state.color = color.id; state.appearanceVersion = 2; setClayAppearance(); drawColors(); addHistory();
   }));
 }
 function updateColorSelection() { drawColors(); }
 drawShapeCatalog(); drawColors(); syncGeometryControls(); resetHistory({ pristine: true });
+
+document.querySelectorAll('[data-language]').forEach((button) => button.addEventListener('click', () => {
+  if (!setLocale(button.dataset.language)) return;
+  drawShapeCatalog(); drawColors(); updatePieceMeta();
+  setTool(tool); setWheel(running);
+  $('#canvasHint').textContent = t(mode === 'model' ? 'canvas.model' : 'canvas.view');
+  syncToolSheetToggle();
+}));
+function syncToolSheetToggle() {
+  const open = $('#toolSheet').dataset.sheetOpen === 'true';
+  const label = t(open ? 'panel.hideTools' : 'panel.showTools');
+  $('#sheetToggleLabel').textContent = label;
+  $('#toolSheetToggle').setAttribute('aria-label', label);
+  $('#toolSheetToggle').setAttribute('aria-expanded', String(open));
+  $('#toolSheetToggle use').setAttribute('href', open ? '#icon-chevron-down' : '#icon-chevron-up');
+}
+$('#toolSheetToggle').addEventListener('click', () => {
+  const sheet = $('#toolSheet');
+  sheet.dataset.sheetOpen = String(sheet.dataset.sheetOpen !== 'true');
+  syncToolSheetToggle();
+});
+$('#toolSheet').addEventListener('transitionend', (event) => {
+  if (event.target === event.currentTarget && event.propertyName === 'max-height') scheduleCameraFrame();
+});
 
 function updatePointer(event) {
   const rect = canvas.getBoundingClientRect();
@@ -302,7 +377,7 @@ document.querySelectorAll('.mode').forEach((button) => button.addEventListener('
   mode = button.dataset.mode;
   document.querySelectorAll('.mode').forEach((b) => { const active = b === button; b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active)); });
   controls.enabled = true; canvas.classList.toggle('view-only', mode === 'view');
-  $('#canvasHint').textContent = mode === 'model' ? 'Arrastra la arcilla para dar forma' : 'Explora tu pieza desde cualquier ángulo';
+  $('#canvasHint').textContent = t(mode === 'model' ? 'canvas.model' : 'canvas.view');
 }));
 function setTool(value) {
   tool = value;
@@ -310,7 +385,7 @@ function setTool(value) {
     const active = button.dataset.tool === tool;
     button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active));
   });
-  $('#toolHint').textContent = tool === 'stretch' ? 'Arrastra hacia arriba o abajo' : tool === 'bilateral' ? 'Arrastra para estrechar desde ambos lados' : 'Arrastra para dar forma';
+  $('#toolHint').textContent = t(tool === 'stretch' ? 'hint.stretch' : tool === 'bilateral' ? 'hint.bilateral' : 'hint.shape');
 }
 document.querySelectorAll('[data-tool]').forEach((button) => button.addEventListener('click', () => setTool(button.dataset.tool)));
 $('#pressure').addEventListener('input', (event) => { state.pressure = Number(event.target.value) / 100; $('#pressureValue').textContent = `${event.target.value}%`; });
@@ -322,7 +397,7 @@ $('#smoothVisual').addEventListener('change', (event) => { state.smoothVisual = 
 $('#prioritizeQuads').addEventListener('change', (event) => { state.prioritizeQuads = event.target.checked; });
 $('#imperfections').addEventListener('input', (event) => {
   state.imperfections = Number(event.target.value); $('#imperfectionsValue').textContent = `${state.imperfections}%`;
-  clay.material.bumpScale = 0.012 * (state.imperfections / 50); rebuildClay('light');
+  setClayAppearance(); rebuildClay('light');
 });
 $('#imperfections').addEventListener('change', () => { rebuildClay(); addHistory(); });
 function setHeightCm(value, preview = false) {
@@ -347,16 +422,16 @@ $('#heightExact').addEventListener('change', (event) => {
 $('#thickness').addEventListener('input', (event) => {
   const requested = Number(event.target.value), maxFeasible = maxFeasibleWallMm();
   const millimeters = THREE.MathUtils.clamp(requested, 1, maxFeasible);
-  if (millimeters !== requested) { event.target.value = millimeters; toast(`Grosor máximo en esta silueta: ${millimeters} mm`); }
+  if (millimeters !== requested) { event.target.value = millimeters; toast(t('toast.maxWall', { value: millimeters })); }
   state.thickness = millimeters / 100; $('#thicknessValue').textContent = `${millimeters} mm`; rebuildClay('light');
 });
 $('#thickness').addEventListener('change', () => { rebuildClay(); addHistory(); });
 $('#pressure').addEventListener('change', addHistory); $('#influence').addEventListener('change', addHistory);
 $('#speed').addEventListener('input', (event) => { rpm = Number(event.target.value); $('#speedValue').innerHTML = `${rpm} <small>RPM</small>`; if (!running && rpm > 0) setWheel(true); updateWheelText(); });
-function updateWheelText() { $('#wheelStatus').textContent = `${running ? 'GIRANDO' : 'EN PAUSA'} · ${rpm} RPM`; $('.status-light').classList.toggle('paused', !running); }
+function updateWheelText() { $('#wheelStatus').textContent = `${t(running ? 'wheel.running' : 'wheel.paused')} · ${rpm} ${t('unit.rpm')}`; $('.status-light').classList.toggle('paused', !running); }
 function setWheel(value) {
   running = value;
-  const action = running ? 'Pausar torno' : 'Reanudar torno';
+  const action = t(running ? 'wheel.pause' : 'wheel.resume');
   $('#wheelToggle').innerHTML = `<svg class="icon" aria-hidden="true"><use href="#icon-${running ? 'pause' : 'play'}" /></svg>`;
   $('#wheelToggle').setAttribute('aria-label', action); $('#wheelToggle').title = action;
   $('.wheel-icon').classList.toggle('spinning', running); updateWheelText();
@@ -373,7 +448,7 @@ $('#resetButton').addEventListener('click', () => {
   const discardEdits = state.dirty;
   if (!canDiscard()) return;
   const shape = SHAPES.find((item) => item.id === state.shape);
-  state.height = shape.height; state.cavity = shape.cavity; state.profile = createProfile(state.shape); rebuildClay();
+  state.height = shape.height; state.cavity = shape.cavity; state.profile = createProfile(state.shape, state.presetVersion); setClayAppearance(); rebuildClay();
   scheduleCameraFrame();
   if (discardEdits) resetHistory({ pristine: true });
   else if (pristinePresetHistory) addHistory({ clean: true, edit: false });
@@ -389,7 +464,7 @@ function download(data, filename, type) {
 }
 $('#saveProject').addEventListener('click', () => {
   download(JSON.stringify(snapshot(true), null, 2), 'torno-pieza.json', 'application/json');
-  pristinePresetHistory = false; cleanHistoryIndex = historyIndex; state.dirty = false; updateHistoryButtons(); toast('Proyecto JSON guardado');
+  pristinePresetHistory = false; cleanHistoryIndex = historyIndex; state.dirty = false; updateHistoryButtons(); toast(t('toast.projectSaved'));
 });
 $('#loadProject').addEventListener('click', () => { if (canDiscard()) $('#projectFile').click(); });
 $('#projectFile').addEventListener('change', async (event) => {
@@ -398,19 +473,19 @@ $('#projectFile').addEventListener('change', async (event) => {
     const data = JSON.parse(await file.text());
     const validShape = SHAPES.some((shape) => shape.id === data.shape), validColor = CLAY_COLORS.some((color) => color.id === data.color);
     const profileValid = Array.isArray(data.profile) && data.profile.length === RINGS + 1 && data.profile.every((r) => Number.isFinite(r) && r >= 0.14 && r <= 1.85);
-    if (![2, 3].includes(data.version) || !validShape || !validColor || !profileValid || !Number.isFinite(data.height) || data.height < 0.24 || data.height > 10 || !Number.isFinite(data.thickness) || data.thickness < 0.01 || data.thickness > 0.32 || (data.imperfections !== undefined && (!Number.isFinite(data.imperfections) || data.imperfections < 0 || data.imperfections > 100))) throw new Error('Este archivo no es un proyecto TORNO válido.');
+    if (![2, 3].includes(data.version) || !validShape || !validColor || !profileValid || !Number.isFinite(data.height) || data.height < 0.24 || data.height > 10 || !Number.isFinite(data.thickness) || data.thickness < 0.01 || data.thickness > 0.32 || (data.imperfections !== undefined && (!Number.isFinite(data.imperfections) || data.imperfections < 0 || data.imperfections > 100))) throw new Error(t('error.invalidProject'));
     data.version = 3; data.imperfections = Number(data.imperfections ?? 50);
     data.cavity = THREE.MathUtils.clamp(Number(data.cavity), 0.12, 0.82); data.thickness = THREE.MathUtils.clamp(data.thickness, 0.01, 0.32);
     data.pressure = THREE.MathUtils.clamp(Number(data.pressure), 0.05, 1); data.influence = THREE.MathUtils.clamp(Number(data.influence), 0.06, 0.42);
-    applySnapshot(data); resetHistory(); drawShapeCatalog(); toast('Pieza cargada');
-  } catch (error) { toast(error.message || 'No se pudo abrir el archivo'); }
+    applySnapshot(data); resetHistory(); drawShapeCatalog(); toast(t('toast.pieceLoaded'));
+  } catch { toast(t('error.openProject')); }
 });
 
 function exportMesh(scale = 1, resolution = state.exportResolution) {
   const exportScene = new THREE.Scene();
   const quality = resolutionSettings(resolution);
   const geometry = makeClayGeometry(state.profile, state.height, state.cavity, state.thickness, {
-    ...quality, adaptive: state.adaptiveTopology, imperfections: state.imperfections,
+    ...quality, adaptive: state.adaptiveTopology, imperfections: state.imperfections, surfaceStyle: clayFinish(),
   });
   const mesh = new THREE.Mesh(geometry, clay.material.clone());
   mesh.position.set(0, 0, 0); mesh.rotation.set(0, 0, 0); mesh.scale.setScalar(scale); exportScene.add(mesh);
@@ -418,7 +493,7 @@ function exportMesh(scale = 1, resolution = state.exportResolution) {
 }
 function validateCeramicMesh(geometry) {
   const position = geometry.getAttribute('position'), index = geometry.index;
-  if (!index || index.count % 3) return { valid: false, reason: 'índices de triángulo incompletos' };
+  if (!index || index.count % 3) return { valid: false, reason: t('error.stl.index') };
   const vertexKey = (id) => `${Math.round(position.getX(id) * 1e5)},${Math.round(position.getY(id) * 1e5)},${Math.round(position.getZ(id) * 1e5)}`;
   const edges = new Map(), faces = new Set();
   let signedVolume = 0, degenerate = 0, duplicateFaces = 0;
@@ -447,29 +522,29 @@ function validateCeramicMesh(geometry) {
   // Allow only sub-micron float drift at the exact 1 mm wall limit.
   const validWall = minWall >= 0.01 - 1e-6 && state.thickness <= maxFeasibleWall + 1e-6;
   const valid = degenerate === 0 && duplicateFaces === 0 && badEdges === 0 && signedVolume > 1e-10 && validWall && validProfile && state.cavity * state.height > 0;
-  return { valid, reason: valid ? '' : `degeneradas ${degenerate}, duplicadas ${duplicateFaces}, bordes/normales ${badEdges}, pared mínima ${(minWall * 100).toFixed(2)} mm` };
+  return { valid, reason: valid ? '' : t('error.stl.stats', { degenerate, duplicate: duplicateFaces, edges: badEdges, wall: (minWall * 100).toFixed(2) }) };
 }
 $('#exportGlb').addEventListener('click', async () => {
   let exported;
-  try { const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js'); exported = exportMesh(); const result = await new GLTFExporter().parseAsync(exported.exportScene, { binary: true, onlyVisible: true }); download(result, 'torno-pieza.glb', 'model/gltf-binary'); toast(`GLB ${state.exportResolution} exportado · geometría independiente`); }
-  catch (error) { console.error(error); toast(`Error GLB: ${error.message}`); }
+  try { const { GLTFExporter } = await import('three/addons/exporters/GLTFExporter.js'); exported = exportMesh(); const result = await new GLTFExporter().parseAsync(exported.exportScene, { binary: true, onlyVisible: true }); download(result, 'torno-pieza.glb', 'model/gltf-binary'); toast(t('toast.exportGlb', { resolution: t(`resolution.${state.exportResolution}`) })); }
+  catch (error) { console.error(error); toast(t('error.exportGlb')); }
   finally { exported?.geometry.dispose(); exported?.mesh.material.dispose(); }
 });
 $('#exportObj').addEventListener('click', async () => {
   let exported;
-  try { const { exportOBJ } = await import('./obj-export.js'); exported = exportMesh(); download(exportOBJ(exported.mesh, { prioritizeQuads: state.prioritizeQuads }), 'torno-pieza.obj', 'text/plain'); toast(`OBJ ${state.exportResolution} exportado${state.prioritizeQuads ? ' · quads' : ''}`); }
-  catch (error) { console.error(error); toast(`Error OBJ: ${error.message}`); }
+  try { const { exportOBJ } = await import('./obj-export.js'); exported = exportMesh(); download(exportOBJ(exported.mesh, { prioritizeQuads: state.prioritizeQuads }), 'torno-pieza.obj', 'text/plain'); toast(t('toast.exportObj', { resolution: t(`resolution.${state.exportResolution}`), quads: state.prioritizeQuads ? ' · quads' : '' })); }
+  catch (error) { console.error(error); toast(t('error.exportObj')); }
   finally { exported?.geometry.dispose(); exported?.mesh.material.dispose(); }
 });
 $('#exportStl').addEventListener('click', () => {
   const exported = exportMesh(1, state.exportResolution);
   const validation = validateCeramicMesh(exported.geometry);
-  if (!validation.valid) { exported.geometry.dispose(); exported.mesh.material.dispose(); toast(`STL detenido: malla no válida (${validation.reason})`); return; }
+  if (!validation.valid) { exported.geometry.dispose(); exported.mesh.material.dispose(); toast(t('error.stl.validation', { reason: validation.reason })); return; }
   import('three/addons/exporters/STLExporter.js').then(({ STLExporter }) => {
     exported.mesh.scale.setScalar(100); exported.mesh.updateMatrix(); exported.exportScene.updateMatrixWorld(true);
     const result = new STLExporter().parse(exported.exportScene, { binary: true });
-    download(result, 'torno-pieza.stl', 'model/stl'); toast(`STL ${state.exportResolution} exportado en mm`);
-  }).catch((error) => toast(`Error STL: ${error.message}`)).finally(() => { exported.geometry.dispose(); exported.mesh.material.dispose(); });
+    download(result, 'torno-pieza.stl', 'model/stl'); toast(t('toast.exportStl', { resolution: t(`resolution.${state.exportResolution}`) }));
+  }).catch(() => toast(t('error.exportStl'))).finally(() => { exported.geometry.dispose(); exported.mesh.material.dispose(); });
 });
 $('#capturePng').addEventListener('click', () => {
   const oldPixelRatio = renderer.getPixelRatio(), oldBackground = scene.background, oldFog = scene.fog;
@@ -494,12 +569,20 @@ $('#capturePng').addEventListener('click', () => {
     scene.background = oldBackground; scene.fog = oldFog; camera.aspect = oldAspect; camera.updateProjectionMatrix();
     renderer.setPixelRatio(oldPixelRatio); renderer.setSize(oldSize.x, oldSize.y, false); renderer.setClearColor(oldClearColor, oldClearAlpha);
     controls.update(); renderer.render(scene, camera);
-    toast(blob ? 'PNG transparente guardado' : 'No se pudo generar la captura');
+    toast(blob ? t('toast.pngSaved') : t('error.png'));
   }, 'image/png');
 });
 
-function resize() { const w = stage.clientWidth, h = stage.clientHeight; camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h, false); if (typeof scheduleCameraFrame === 'function') scheduleCameraFrame(); }
-window.addEventListener('resize', resize, { passive: true }); resize();
+function resize() {
+  const { width, height } = stage.getBoundingClientRect();
+  if (!width || !height) return;
+  camera.aspect = width / height; camera.updateProjectionMatrix(); renderer.setSize(width, height, false);
+  if (typeof scheduleCameraFrame === 'function') scheduleCameraFrame();
+}
+window.addEventListener('resize', resize, { passive: true });
+window.addEventListener('orientationchange', resize, { passive: true });
+if ('ResizeObserver' in window) new ResizeObserver(resize).observe(stage);
+resize();
 const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate); const dt = Math.min(clock.getDelta(), 0.05);

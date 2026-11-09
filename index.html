@@ -1,120 +1,132 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#101310" />
-    <meta name="description" content="TORNO — Virtual Pottery Studio" />
-    <title>TORNO — Virtual Pottery Studio</title>
+    <meta name="description" content="CLAYWHEEL — Virtual Pottery Studio. Shape and explore ceramic forms in 3D." />
+    <title>CLAYWHEEL — Virtual Pottery Studio</title>
   </head>
   <body>
     <main id="app">
-      <div id="stage" aria-label="Estudio 3D de modelado de cerámica">
+      <div id="stage" data-i18n-aria-label="stage.label" aria-label="3D pottery modeling studio">
         <header class="topbar">
-          <a class="brand" href="#" aria-label="TORNO inicio"><span class="brand-mark">T</span><span>TORNO<small>VIRTUAL POTTERY STUDIO</small></span></a>
-          <div class="project-name"><span class="live-dot"></span> ESTUDIO SIN TÍTULO <span class="saved">· GUARDADO LOCAL</span></div>
-          <div class="history-controls" role="group" aria-label="Historial de edición">
-            <button id="undoButton" class="icon-button" type="button" disabled aria-label="Deshacer" title="Deshacer · ⌘/Ctrl + Z"><svg class="icon" aria-hidden="true"><use href="#icon-undo-2" /></svg></button>
-            <button id="redoButton" class="icon-button" type="button" disabled aria-label="Rehacer" title="Rehacer · ⌘/Ctrl + Mayús + Z"><svg class="icon" aria-hidden="true"><use href="#icon-redo-2" /></svg></button>
+          <a class="brand" href="#" data-i18n-aria-label="brand.label" aria-label="CLAYWHEEL home"><span class="brand-mark">C</span><span>CLAYWHEEL<small data-i18n="brand.subtitle">VIRTUAL POTTERY STUDIO</small></span></a>
+          <div class="project-name"><span class="live-dot"></span> <span data-i18n="project.untitled">UNTITLED STUDIO</span> <span class="saved" data-i18n="project.saved">· SAVED LOCALLY</span></div>
+          <div class="topbar-actions">
+          <div class="language-switch" role="group" data-i18n-aria-label="language.label" aria-label="Language">
+            <button type="button" data-language="en" data-i18n-title="language.english" aria-pressed="true" title="English">EN</button>
+            <button type="button" data-language="es" data-i18n-title="language.spanish" aria-pressed="false" title="Spanish">ES</button>
+          </div>
+          <div class="history-controls" role="group" data-i18n-aria-label="history.label" aria-label="Edit history">
+            <button id="undoButton" class="icon-button" type="button" disabled data-i18n-aria-label="history.undo" data-i18n-title="history.undo" aria-label="Undo" title="Undo · ⌘/Ctrl + Z"><svg class="icon" aria-hidden="true"><use href="#icon-undo-2" /></svg></button>
+            <button id="redoButton" class="icon-button" type="button" disabled data-i18n-aria-label="history.redo" data-i18n-title="history.redo" aria-label="Redo" title="Redo · ⌘/Ctrl + Shift + Z"><svg class="icon" aria-hidden="true"><use href="#icon-redo-2" /></svg></button>
+          </div>
           </div>
         </header>
 
-        <div class="left-rail">
-          <div class="mode-switch" role="group" aria-label="Modo de trabajo">
-            <button class="mode active" data-mode="model" aria-pressed="true" title="Activar herramientas de modelado"><svg class="icon" aria-hidden="true"><use href="#icon-pencil" /></svg> Modelar</button>
-            <button class="mode" data-mode="view" aria-pressed="false" title="Orbitar y observar la pieza"><svg class="icon" aria-hidden="true"><use href="#icon-orbit" /></svg> Observar</button>
+        <div class="left-rail" id="toolSheet" data-sheet-open="false">
+          <button class="sheet-toggle" id="toolSheetToggle" type="button" aria-expanded="false" aria-controls="toolPanelContent" aria-label="Show tools">
+            <span class="sheet-grabber" aria-hidden="true"></span><span id="sheetToggleLabel" data-i18n="panel.showTools">Show tools</span>
+            <svg class="icon" aria-hidden="true"><use href="#icon-chevron-up" /></svg>
+          </button>
+          <div class="rail-content" id="toolPanelContent">
+          <div class="mode-switch" role="group" data-i18n-aria-label="mode.label" aria-label="Work mode">
+            <button class="mode active" data-mode="model" aria-pressed="true" data-i18n-title="mode.model.title" title="Activate modeling tools"><svg class="icon" aria-hidden="true"><use href="#icon-pencil" /></svg> <span data-i18n="mode.model">Model</span></button>
+            <button class="mode" data-mode="view" aria-pressed="false" data-i18n-title="mode.view.title" title="Orbit around and inspect the piece"><svg class="icon" aria-hidden="true"><use href="#icon-orbit" /></svg> <span data-i18n="mode.view">Observe</span></button>
           </div>
           <div class="tool-card">
-            <div class="card-label">HERRAMIENTA ACTIVA</div>
-            <div class="tool-options" role="group" aria-label="Herramientas de modelado">
-              <button class="tool-option active" data-tool="shape" aria-label="Modelado suave" title="Modelado suave" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#icon-sculpt" /></svg><small>Suave</small></button>
-              <button class="tool-option" data-tool="bilateral" aria-label="Presión bilateral" title="Presión bilateral" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-move-horizontal" /></svg><small>Bilateral</small></button>
-              <button class="tool-option" data-tool="stretch" aria-label="Estirar" title="Estirar la pieza" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-move-vertical" /></svg><small>Estirar</small></button>
+            <div class="card-label" data-i18n="tool.active">ACTIVE TOOL</div>
+            <div class="tool-options" role="group" data-i18n-aria-label="tool.group" aria-label="Modeling tools">
+              <button class="tool-option active" data-tool="shape" data-i18n-aria-label="tool.shape" data-i18n-title="tool.shape" aria-label="Soft shaping" title="Soft shaping" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#icon-sculpt" /></svg><small data-i18n="tool.shape.short">Soft</small></button>
+              <button class="tool-option" data-tool="bilateral" data-i18n-aria-label="tool.bilateral" data-i18n-title="tool.bilateral" aria-label="Bilateral pressure" title="Bilateral pressure" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-move-horizontal" /></svg><small data-i18n="tool.bilateral.short">Bilateral</small></button>
+              <button class="tool-option" data-tool="stretch" data-i18n-aria-label="tool.stretch" data-i18n-title="tool.stretch" aria-label="Stretch" title="Stretch" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#icon-move-vertical" /></svg><small data-i18n="tool.stretch.short">Stretch</small></button>
             </div>
-            <span class="tool-hint" id="toolHint">Arrastra para dar forma</span>
-            <label class="slider-label" for="heightControl">Altura <output id="heightValue">6.2 cm</output></label>
+            <span class="tool-hint" id="toolHint" data-i18n="hint.shape">Drag to shape the clay</span>
+            <label class="slider-label" for="heightControl"><span data-i18n="control.height">Height</span> <output id="heightValue">6.2 cm</output></label>
             <input id="heightControl" type="range" min="2.4" max="100" step="0.1" value="6.2" />
-            <label class="slider-label exact-height-label" for="heightExact">Altura exacta</label>
+            <label class="slider-label exact-height-label" for="heightExact" data-i18n="control.heightExact">Exact height</label>
             <div class="height-entry"><input id="heightExact" type="number" min="2.4" max="100" step="0.1" value="6.2" /><span>cm</span></div>
-            <label class="slider-label" for="pressure">Presión <output id="pressureValue">42%</output></label>
+            <label class="slider-label" for="pressure"><span data-i18n="control.pressure">Pressure</span> <output id="pressureValue">42%</output></label>
             <input id="pressure" type="range" min="5" max="100" value="42" />
-            <label class="slider-label" for="influence">Influencia <output id="influenceValue">18 cm</output></label>
+            <label class="slider-label" for="influence"><span data-i18n="control.influence">Influence</span> <output id="influenceValue">18 cm</output></label>
             <input id="influence" type="range" min="6" max="42" value="18" />
           </div>
           <details class="control-fold" open>
-            <summary>Siluetas</summary>
-            <div id="shapeCatalog" class="shape-catalog" aria-label="Catálogo de formas"></div>
+            <summary data-i18n="panel.shapes">Shapes</summary>
+            <div id="shapeCatalog" class="shape-catalog" data-i18n-aria-label="shape.catalog" aria-label="Shape catalog"></div>
           </details>
           <details class="control-fold" open>
-            <summary>Arcilla y pared</summary>
-            <div id="clayColors" class="clay-colors" aria-label="Colores de arcilla"></div>
-            <label class="slider-label" for="thickness">Grosor de pared <output id="thicknessValue">11 mm</output></label>
+            <summary data-i18n="panel.clay">Clay and wall</summary>
+            <div id="clayColors" class="clay-colors" data-i18n-aria-label="color.catalog" aria-label="Clay colors"></div>
+            <label class="slider-label" for="thickness"><span data-i18n="control.thickness">Wall thickness</span> <output id="thicknessValue">11 mm</output></label>
             <input id="thickness" type="range" min="1" max="32" step="1" value="11" />
-            <p class="micro-note">Validez geométrica comprobada; la viabilidad física depende del material y del proceso.</p>
+            <p class="micro-note" data-i18n="note.wall">Geometric validity is checked; physical feasibility depends on the material and process.</p>
           </details>
           <details class="control-fold" open>
-            <summary>Geometría y optimización</summary>
-            <label class="compact-label" for="modelResolution">Resolución de modelado</label>
+            <summary data-i18n="panel.geometry">Geometry and optimization</summary>
+            <label class="compact-label" for="modelResolution" data-i18n="control.modelResolution">Modeling resolution</label>
             <select id="modelResolution">
-              <option value="light">Ligera</option><option value="balanced" selected>Equilibrada</option><option value="high">Alta</option>
+              <option value="light" data-i18n="resolution.light">Low</option><option value="balanced" selected data-i18n="resolution.balanced">Balanced</option><option value="high" data-i18n="resolution.high">High</option>
             </select>
-            <label class="compact-label" for="exportResolution">Resolución de exportación</label>
+            <label class="compact-label" for="exportResolution" data-i18n="control.exportResolution">Export resolution</label>
             <select id="exportResolution">
-              <option value="light">Ligera</option><option value="standard" selected>Estándar</option><option value="high">Alta</option>
+              <option value="light" data-i18n="resolution.light">Low</option><option value="standard" selected data-i18n="resolution.standard">Standard</option><option value="high" data-i18n="resolution.high">High</option>
             </select>
             <div class="geometry-options">
-              <label><input id="adaptiveTopology" type="checkbox" checked /> <span>Topología adaptativa</span></label>
-              <label><input id="smoothVisual" type="checkbox" checked /> <span>Suavizado visual</span></label>
-              <label><input id="prioritizeQuads" type="checkbox" checked /> <span>Priorizar quads en OBJ</span></label>
+              <label><input id="adaptiveTopology" type="checkbox" checked /> <span data-i18n="option.adaptive">Adaptive topology</span></label>
+              <label><input id="smoothVisual" type="checkbox" checked /> <span data-i18n="option.smoothing">Visual smoothing</span></label>
+              <label><input id="prioritizeQuads" type="checkbox" checked /> <span data-i18n="option.quads">Prefer quads in OBJ</span></label>
             </div>
-            <label class="slider-label" for="imperfections">Imperfecciones de superficie <output id="imperfectionsValue">50%</output></label>
+            <label class="slider-label" for="imperfections"><span data-i18n="control.imperfections">Surface imperfections</span> <output id="imperfectionsValue">50%</output></label>
             <input id="imperfections" type="range" min="0" max="100" step="1" value="50" />
           </details>
           <details class="control-fold" open>
-            <summary>Proyecto y exportación</summary>
+            <summary data-i18n="panel.project">Project and export</summary>
             <div class="action-grid">
-              <button id="saveProject" class="small-action" title="Guardar proyecto TORNO en JSON">Guardar JSON</button>
-              <button id="loadProject" class="small-action" title="Abrir un proyecto TORNO en JSON">Abrir JSON</button>
-              <button id="exportGlb" class="small-action" title="Exportar pieza con geometría y material en GLB">Exportar GLB</button>
-              <button id="exportObj" class="small-action" title="Exportar geometría OBJ">Exportar OBJ</button>
-              <button id="exportStl" class="small-action" title="Exportar malla STL en milímetros">Exportar STL</button>
-              <button id="capturePng" class="small-action" title="Capturar una imagen PNG del estudio">Capturar PNG</button>
+              <button id="saveProject" class="small-action" data-i18n="action.saveJson" data-i18n-title="title.saveJson" title="Save CLAYWHEEL project as JSON">Save JSON</button>
+              <button id="loadProject" class="small-action" data-i18n="action.loadJson" data-i18n-title="title.loadJson" title="Open a CLAYWHEEL JSON project">Open JSON</button>
+              <button id="exportGlb" class="small-action" data-i18n="action.exportGlb" data-i18n-title="title.exportGlb" title="Export piece with geometry and material as GLB">Export GLB</button>
+              <button id="exportObj" class="small-action" data-i18n="action.exportObj" data-i18n-title="title.exportObj" title="Export OBJ geometry">Export OBJ</button>
+              <button id="exportStl" class="small-action" data-i18n="action.exportStl" data-i18n-title="title.exportStl" title="Export STL mesh in millimeters">Export STL</button>
+              <button id="capturePng" class="small-action" data-i18n="action.capturePng" data-i18n-title="title.capturePng" title="Capture a PNG image of the studio">Capture PNG</button>
             </div>
-            <label class="slider-label resolution-label" for="captureScale">Resolución PNG</label>
+            <label class="slider-label resolution-label" for="captureScale" data-i18n="control.pngResolution">PNG resolution</label>
             <select id="captureScale"><option value="1">1×</option><option value="2" selected>2×</option><option value="3">3×</option></select>
             <input id="projectFile" type="file" accept="application/json,.json" hidden />
           </details>
-          <div class="hint-card"><span class="hint-dot"></span><span><b>CONSEJO</b><br />Arrastra a los lados<br />para estrechar o ensanchar.</span></div>
+          <div class="hint-card"><span class="hint-dot"></span><span><b data-i18n="hint.tipTitle">TIP</b><br /><span data-i18n="hint.tipText">Drag sideways to narrow or widen.</span></span></div>
+          </div>
         </div>
 
         <div class="right-rail">
-          <label class="view-chip" for="cameraView"><span class="view-dot"></span> VISTA 3D <span>·</span>
-            <select id="cameraView" aria-label="Vista de cámara">
-              <option value="perspective">Perspectiva</option>
-              <option value="front">Frontal</option>
-              <option value="side">Lateral</option>
-              <option value="top">Superior</option>
+          <label class="view-chip" for="cameraView"><span class="view-dot"></span> <span data-i18n="camera.chip">3D VIEW</span> <span>·</span>
+            <select id="cameraView" data-i18n-aria-label="camera.label" aria-label="Camera view">
+              <option value="perspective" data-i18n="camera.perspective">Perspective</option>
+              <option value="front" data-i18n="camera.front">Front</option>
+              <option value="side" data-i18n="camera.side">Side</option>
+              <option value="top" data-i18n="camera.top">Top</option>
             </select>
           </label>
-          <div class="orbit-hint">Arrastra para orbitar <i>·</i> Desplaza para zoom</div>
-          <button class="view-control" id="homeView" type="button" title="Centrar y restaurar la vista" aria-label="Centrar y restaurar la vista"><svg class="icon" aria-hidden="true"><use href="#icon-focus" /></svg></button>
+          <div class="orbit-hint"><span data-i18n="camera.orbit">Drag to orbit</span> <i>·</i> <span data-i18n="camera.zoom">Scroll to zoom</span></div>
+          <button class="view-control" id="homeView" type="button" data-i18n-title="camera.home" data-i18n-aria-label="camera.home" title="Center and restore view" aria-label="Center and restore view"><svg class="icon" aria-hidden="true"><use href="#icon-focus" /></svg></button>
         </div>
 
         <div class="bottom-panel">
           <div class="wheel-control">
             <div class="wheel-icon spinning" aria-hidden="true"><svg class="icon"><use href="#icon-rotate-cw" /></svg></div>
-            <div class="wheel-copy"><b>TORNO</b><small id="wheelStatus">GIRANDO · 72 RPM</small></div>
-            <button id="wheelToggle" class="play-button" type="button" aria-label="Pausar torno" title="Pausar torno"><svg class="icon" aria-hidden="true"><use href="#icon-pause" /></svg></button>
+            <div class="wheel-copy"><b data-i18n="wheel.name">WHEEL</b><small id="wheelStatus">SPINNING · 72 RPM</small></div>
+            <button id="wheelToggle" class="play-button" type="button" data-i18n-aria-label="wheel.pause" data-i18n-title="wheel.pause" aria-label="Pause wheel" title="Pause wheel"><svg class="icon" aria-hidden="true"><use href="#icon-pause" /></svg></button>
           </div>
-          <div class="speed-control"><label for="speed">VELOCIDAD</label><input id="speed" type="range" min="0" max="140" value="72" /><output id="speedValue">72 <small>RPM</small></output></div>
+          <div class="speed-control"><label for="speed" data-i18n="control.speed">SPEED</label><input id="speed" type="range" min="0" max="140" value="72" /><output id="speedValue">72 <small>RPM</small></output></div>
           <div class="bottom-separator"></div>
-          <div class="piece-meta"><span id="pieceName">CILINDRO</span><b id="pieceHeight">6.2 cm</b><small>ALTURA</small></div>
-          <button id="resetButton" class="reset-button" type="button" title="Restaurar la silueta seleccionada" aria-label="Reiniciar pieza"><svg class="icon" aria-hidden="true"><use href="#icon-rotate-ccw" /></svg> Reiniciar pieza</button>
+          <div class="piece-meta"><span id="pieceName">CYLINDER</span><b id="pieceHeight">6.2 cm</b><small data-i18n="piece.height">HEIGHT</small></div>
+          <button id="resetButton" class="reset-button" type="button" data-i18n-title="piece.reset.title" data-i18n-aria-label="piece.reset" title="Restore the selected shape" aria-label="Reset piece"><svg class="icon" aria-hidden="true"><use href="#icon-rotate-ccw" /></svg> <span data-i18n="piece.reset">Reset piece</span></button>
         </div>
 
-        <div class="center-label"><span id="canvasHint">Una pieza nueva, lista para tomar forma</span></div>
-        <div class="footer-left">TORNO <span>·</span> BETA 0.1</div>
-        <div class="footer-right"><span class="status-light"></span> MOTOR ACTIVO</div>
+        <div class="center-label"><span id="canvasHint" data-i18n="canvas.new">A fresh piece, ready to take shape</span></div>
+        <div class="footer-left">CLAYWHEEL <span>·</span> <span data-i18n="footer.beta">BETA 0.1</span></div>
+        <div class="footer-right"><span class="status-light"></span> <span data-i18n="footer.motor">MOTOR ACTIVE</span></div>
       </div>
     </main>
     <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
@@ -129,6 +141,8 @@
       <symbol id="icon-orbit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><ellipse cx="12" cy="12" rx="9" ry="4.5" transform="rotate(-30 12 12)"/><path d="m18.8 5.7 1.5 2.4-2.8.3"/></symbol>
       <symbol id="icon-move-horizontal" viewBox="0 0 24 24"><path d="M8 8 4 12l4 4"/><path d="m16 8 4 4-4 4"/><path d="M4 12h16"/></symbol>
       <symbol id="icon-move-vertical" viewBox="0 0 24 24"><path d="m8 8 4-4 4 4"/><path d="m8 16 4 4 4-4"/><path d="M12 4v16"/></symbol>
+      <symbol id="icon-chevron-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol>
+      <symbol id="icon-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
       <symbol id="icon-pencil" viewBox="0 0 24 24"><path d="m16 5 3 3"/><path d="M4 20l4-.9L19 8a2.1 2.1 0 0 0-3-3L5 16z"/><path d="M14 7l3 3"/></symbol>
     </svg>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>

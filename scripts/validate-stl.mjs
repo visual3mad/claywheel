@@ -76,7 +76,7 @@ function sectionContours(geometry, y) {
   return { loops, nonManifoldSectionNodes, segments: segments.length, radiusLevels: radii };
 }
 
-const cases = SHAPES.map((shape) => ({ ...shape, profile: createProfile(shape.id), thickness: 0.11, allResolutions: true }));
+const cases = SHAPES.map((shape) => ({ ...shape, profile: createProfile(shape.id), thickness: 0.11, surfaceStyle: shape.id === 'cylinder' ? 'fresh' : undefined, allResolutions: true }));
 const smoothProfile = createProfile('cylinder'), bilateralProfile = createProfile('vase');
 for (let i = 0; i <= 72; i++) {
   const soft = Math.exp(-0.5 * ((i - 32) / 5.5) ** 2);
@@ -85,6 +85,7 @@ for (let i = 0; i <= 72; i++) {
   bilateralProfile[i] = THREE.MathUtils.clamp(bilateralProfile[i] - 0.19 * squeeze, 0.14, 1.85);
 }
 cases.push(
+  { id: 'cylinder-legacy', name: 'Cilindro legado desde JSON', height: 0.62, cavity: 0.43, profile: createProfile('cylinder', 1), thickness: 0.11, surfaceStyle: 'classic', allResolutions: true },
   { id: 'plate', name: 'Plato bajo ancho · pared 1 mm', height: 0.24, cavity: 0.18, profile: createProfile('plate'), thickness: 0.01, imperfections: 0 },
   { id: 'cup', name: 'Vaso alto estrecho · 100 cm', height: 10, cavity: 0.34, profile: createProfile('cup').map((r) => Math.max(0.14, r * 0.58)), thickness: 0.01, imperfections: 75 },
   { id: 'cylinder', name: 'Modelado suave aplicado', height: 0.62, cavity: 0.43, profile: smoothProfile, thickness: 0.11, imperfections: 50 },
@@ -100,7 +101,7 @@ for (const shape of cases) {
 
   const resolutions = shape.allResolutions ? Object.entries(GEOMETRY_RESOLUTIONS) : [['high', GEOMETRY_RESOLUTIONS.high]];
   for (const [level, quality] of resolutions) {
-    const sourceGeometry = makeClayGeometry(profile, shape.height, shape.cavity, thickness, { ...quality, adaptive: true, imperfections: shape.imperfections ?? 50 });
+    const sourceGeometry = makeClayGeometry(profile, shape.height, shape.cavity, thickness, { ...quality, adaptive: true, imperfections: shape.imperfections ?? 50, surfaceStyle: shape.surfaceStyle });
     const mesh = new THREE.Mesh(sourceGeometry); mesh.scale.setScalar(scaleToMillimeters);
     const scene = new THREE.Scene(); scene.add(mesh); scene.updateMatrixWorld(true);
     const stl = new STLExporter().parse(scene, { binary: true });
